@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build output
+dist/
+*.js
+*.d.ts
+*.map
+
+# Environment
+.env
+.env.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Exports
+*.png
+*.jpg
+*.mp4
+*.gif
+*.svg
+github-wrapped-*/
+gh-wrapped.*
+
+# Conversation logs
+2025-*.txt
+
+# Cache
+.cache/
+.parcel-cache/

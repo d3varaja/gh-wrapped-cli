@@ -1,0 +1,57 @@
+{
+  "name": "github-wrapped-2025",
+  "version": "1.0.0",
+  "description": "Your GitHub year in review - in your terminal",
+  "main": "dist/index.js",
+  "bin": {
+    "github-wrapped": "./dist/index.js",
+    "github-wrapped-2025": "./dist/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.tsx",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Tests coming soon\" && exit 0"
+  },
+  "keywords": [
+    "github",
+    "wrapped",
+    "cli",
+    "terminal",
+    "stats",
+    "year-in-review",
+    "github-stats",
+    "developer-tools"
+  ],
+  "author": "d3varaja",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/d3varaja/gh-wrapped-cli.git"
+  },
+  "dependencies": {
+    "@octokit/rest": "^20.0.2",
+    "chalk": "^5.3.0",
+    "commander": "^11.1.0",
+    "date-fns": "^3.0.0",
+    "dotenv": "^16.6.1",
+    "ink": "^4.4.1",
+    "ink-select-input": "^5.0.0",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^5.0.1",
+    "ora": "^7.0.1",
+    "puppeteer": "^21.6.1",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@types/react": "^18.2.45",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
