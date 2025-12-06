@@ -37,6 +37,10 @@ npm-debug.log*
 *.svg
 github-wrapped-*/
 gh-wrapped.*
+share-links.txt
+
+# Backups
+*.backup
 
 # Conversation logs
 2025-*.txt

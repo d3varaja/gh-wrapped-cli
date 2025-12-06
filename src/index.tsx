@@ -7,7 +7,7 @@ import { execSync } from 'child_process';
 import { createInterface } from 'readline';
 import chalk from 'chalk';
 import ora from 'ora';
-import { GitHubClient } from './github.js';
+import { GitHubGraphQLClient } from './github-graphql-fixed.js';
 import { StatsAnalyzer } from './analytics.js';
 import { StatsDisplay } from './ui.js';
 
@@ -138,51 +138,37 @@ async function main() {
 
     console.log(chalk.green(`\n✓ Using username: ${username}\n`));
 
-    // Step 2: Ask about comparison
-    const rl = createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
+    // Default to current year (2025)
+    const selectedYear = new Date().getFullYear();
+    const wantComparison = false;
 
-    const wantComparison = await new Promise<boolean>((resolve) => {
-      rl.question(chalk.cyan('Compare with 2024 data? (y/N): '), (answer) => {
-        rl.close();
-        resolve(answer.toLowerCase() === 'y');
-      });
-    });
-
-    console.log('');
-
-    // Step 3: Fetch data function
-    const fetchAllData = async (token?: string) => {
-      const client = new GitHubClient(username, token);
+    // Step 4: Fetch data function (using GraphQL for REAL data!)
+    const fetchAllData = async (token?: string, year: number = selectedYear) => {
+      const client = new GitHubGraphQLClient(username, token);
       const analyzer = new StatsAnalyzer();
 
-      const spinner = ora(chalk.blue('Fetching your GitHub data...')).start();
+      const startDate = new Date(`${year}-01-01`);
+      const endDate = year === new Date().getFullYear() ? new Date() : new Date(`${year}-12-31`);
+      const dateRangeStr = `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
+      const spinner = ora(chalk.blue(`Fetching GitHub data for ${year} (${dateRangeStr})...`)).start();
 
       try {
-        spinner.text = chalk.blue('Loading user profile...');
-        const user = await client.getUser();
+        spinner.text = chalk.blue(`Fetching ${year} data via GraphQL...`);
 
-        spinner.text = chalk.blue('Loading repositories...');
-        const repos = await client.getRepositories();
+        const [user, repos, languageStats, commits, totalPRs, totalIssues, contributions, realLinesChanged, accurateCommitCount] = await Promise.all([
+          client.getUser(),
+          client.getRepositories(),
+          client.getLanguages(),
+          client.getCommitsForYear(year),
+          client.getPullRequests(year),
+          client.getIssues(year),
+          client.getContributionCalendar(year),
+          client.getTotalLinesChanged(year),
+          client.getTotalCommitCount(year)
+        ]);
 
-        spinner.text = chalk.blue('Analyzing languages...');
-        const languageStats = await client.getLanguages();
-
-        spinner.text = chalk.blue('Fetching commits for 2025...');
-        const commits = await client.getCommitsForYear(2025);
-
-        spinner.text = chalk.blue('Counting pull requests...');
-        const totalPRs = await client.getPullRequests(2025);
-
-        spinner.text = chalk.blue('Counting issues...');
-        const totalIssues = await client.getIssues(2025);
-
-        spinner.text = chalk.blue('Building contribution calendar...');
-        const contributions = await client.getContributionCalendar(2025);
-
-        spinner.text = chalk.blue('Generating your wrapped...');
+        spinner.text = chalk.blue('Generating your wrapped with REAL data...');
         const stats = await analyzer.generateWrappedStats(
           user,
           commits,
@@ -190,42 +176,63 @@ async function main() {
           languageStats,
           contributions,
           totalPRs,
-          totalIssues
+          totalIssues,
+          realLinesChanged,
+          year,
+          dateRangeStr,
+          accurateCommitCount
         );
 
         let comparisonStats = null;
         if (wantComparison) {
-          spinner.text = chalk.blue('Fetching 2024 data for comparison...');
+          const previousYear = year - 1;
+          spinner.text = chalk.blue(`Fetching ${previousYear} & ${year} data in parallel for comparison...`);
 
-          const commits2024 = await client.getCommitsForYear(2024);
-          const prs2024 = await client.getPullRequests(2024);
-          const issues2024 = await client.getIssues(2024);
-          const contributions2024 = await client.getContributionCalendar(2024);
+          const [
+            commitsPrev,
+            prsPrev,
+            issuesPrev,
+            contributionsPrev,
+            accurateCommitsPrev,
+            commitsCurr,
+            prsCurr,
+            issuesCurr,
+            contributionsCurr,
+            accurateCommitsCurr
+          ] = await Promise.all([
+            client.getCommitsForYear(previousYear),
+            client.getPullRequests(previousYear),
+            client.getIssues(previousYear),
+            client.getContributionCalendar(previousYear),
+            client.getTotalCommitCount(previousYear),
+            client.getCommitsForYear(year),
+            client.getPullRequests(year),
+            client.getIssues(year),
+            client.getContributionCalendar(year),
+            client.getTotalCommitCount(year)
+          ]);
 
-          const commits2025 = await client.getCommitsForYear(2025);
-          const prs2025 = await client.getPullRequests(2025);
-          const issues2025 = await client.getIssues(2025);
-          const contributions2025 = await client.getContributionCalendar(2025);
-
-          const year2024Data = analyzer.generateYearComparison(
-            2024,
-            commits2024,
+          const yearPrevData = analyzer.generateYearComparison(
+            previousYear,
+            commitsPrev,
             languageStats,
-            contributions2024,
-            prs2024,
-            issues2024
+            contributionsPrev,
+            prsPrev,
+            issuesPrev,
+            accurateCommitsPrev
           );
 
-          const year2025Data = analyzer.generateYearComparison(
-            2025,
-            commits2025,
+          const yearCurrData = analyzer.generateYearComparison(
+            year,
+            commitsCurr,
             languageStats,
-            contributions2025,
-            prs2025,
-            issues2025
+            contributionsCurr,
+            prsCurr,
+            issuesCurr,
+            accurateCommitsCurr
           );
 
-          comparisonStats = analyzer.generateComparisonStats(year2024Data, year2025Data);
+          comparisonStats = analyzer.generateComparisonStats(yearPrevData, yearCurrData);
         }
 
         spinner.succeed(chalk.green('All data fetched!'));
@@ -257,9 +264,9 @@ async function main() {
     // Small delay for visual effect
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Import Exporter dynamically
-    const { Exporter } = await import('./export.js');
-    const exporter = new Exporter(result.stats);
+    // Import SimpleExporter - SVG only, no crashes
+    const { SimpleExporter } = await import('./export-simple.js');
+    const exporter = new SimpleExporter(result.stats);
 
     let inkInstance: any;
 
@@ -269,54 +276,24 @@ async function main() {
         stats={result.stats}
         onExport={async (format?: 'png' | 'svg' | 'gif') => {
           try {
-            inkInstance.unmount();
-            console.clear();
-
-            if (format === 'png') {
-              console.log(chalk.yellow('\n⏳ First-time PNG export will download Chrome (~120MB)'));
-              console.log(chalk.yellow('This may take 1-2 minutes...\n'));
-            }
-
-            const spinner = ora(chalk.blue(`Exporting as ${format?.toUpperCase() || 'PNG'}...`)).start();
-
-            try {
-              const outputPath = await exporter.exportImage(format || 'png');
-              spinner.succeed(chalk.green(`✓ Exported successfully!`));
-              console.log('');
-              console.log(chalk.green.bold(`📁 File saved to:`));
-              console.log(chalk.cyan(`   ${outputPath}`));
-              console.log('');
-              console.log(chalk.gray(`Open this file to see your GitHub Wrapped card!`));
-              console.log('');
-            } catch (err: any) {
-              spinner.fail(chalk.red(`✗ Export failed: ${err.message}`));
-              console.error(chalk.red('\nFull error:'), err);
-              console.log(chalk.yellow('\nTip: Try SVG export instead (press S) - works instantly!\n'));
-            }
+            await exporter.exportSVG();
+            // Don't unmount or exit - let the farewell slide show
           } catch (err: any) {
-            console.error(chalk.red('Error during export:'), err);
+            console.error(chalk.red('Export error:'), err);
           }
-
-          process.exit(0);
         }}
         onExit={() => process.exit(0)}
         onShare={async (platform: 'twitter' | 'linkedin') => {
-          inkInstance.unmount();
-          console.clear();
-
-          if (platform === 'twitter') {
-            const url = exporter.getTwitterShareURL();
-            console.log(chalk.green('\n🐦 Twitter Share Link:\n'));
-            console.log(chalk.cyan(url));
-            console.log(chalk.gray('\nOpen this URL in your browser to share!\n'));
-          } else if (platform === 'linkedin') {
-            const linksPath = exporter.saveShareLinks();
-            console.log(chalk.green('\n💼 LinkedIn Share Instructions:\n'));
-            console.log(chalk.cyan(`Share links and text saved to: ${linksPath}`));
-            console.log(chalk.gray('\nOpen the file to copy the text and LinkedIn URL!\n'));
+          try {
+            if (platform === 'twitter') {
+              exporter.getTwitterShareURL();
+            } else if (platform === 'linkedin') {
+              exporter.saveShareLinks();
+            }
+            // Don't unmount or exit - let the farewell slide show
+          } catch (err: any) {
+            console.error(chalk.red('Share error:'), err);
           }
-
-          process.exit(0);
         }}
         comparisonStats={result.comparisonStats}
       />

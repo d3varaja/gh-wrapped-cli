@@ -8,9 +8,18 @@
     "github-wrapped-2025": "./dist/index.js"
   },
   "type": "module",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "bun run src/index.tsx",
-    "build": "bun build src/index.tsx --outdir dist --target node --minify --external yoga-wasm-web --external puppeteer",
+    "build": "bun build src/index.tsx --outdir dist --target node --minify --external yoga-wasm-web",
+    "postbuild": "node -e \"const fs = require('fs'); fs.cpSync('src/fonts', 'dist/fonts', {recursive: true}); fs.copyFileSync('src/export-worker.mjs', 'dist/export-worker.mjs');\"",
     "build:types": "tsc --emitDeclarationOnly",
     "start": "bun run dist/index.js",
     "prepublishOnly": "bun run build && bun run build:types",
@@ -33,6 +42,7 @@
     "url": "https://github.com/d3varaja/gh-wrapped-cli.git"
   },
   "dependencies": {
+    "@octokit/graphql": "9.0.3",
     "@octokit/rest": "^20.0.2",
     "chalk": "^5.3.0",
     "commander": "^11.1.0",
@@ -43,8 +53,9 @@
     "ink-spinner": "^5.0.0",
     "ink-text-input": "^5.0.1",
     "ora": "^7.0.1",
-    "puppeteer": "^21.6.1",
-    "react": "^18.2.0"
+    "react": "^18.2.0",
+    "satori": "0.18.3",
+    "sharp": "0.34.5"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
@@ -58,6 +69,6 @@
     "bun": ">=1.0.0"
   },
   "trustedDependencies": [
-    "puppeteer"
+    "@resvg/resvg-js"
   ]
 }

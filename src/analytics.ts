@@ -389,8 +389,12 @@ export class StatsAnalyzer {
     return mostActive;
   }
 
-  calculateTotalLinesChanged(repos: Repository[]): number {
-    // Estimate based on repo sizes (rough approximation)
+  calculateTotalLinesChanged(repos: Repository[], realLinesChanged?: { additions: number; deletions: number; total: number }): number {
+    // Use REAL data from GraphQL if available, otherwise fallback to estimate
+    if (realLinesChanged) {
+      return realLinesChanged.total;
+    }
+    // Fallback: Estimate based on repo sizes (rough approximation)
     return repos.reduce((sum, repo) => sum + repo.size, 0);
   }
 
@@ -452,24 +456,32 @@ export class StatsAnalyzer {
     languageStats: { [key: string]: number },
     contributions: ContributionDay[],
     totalPRs: number,
-    totalIssues: number
+    totalIssues: number,
+    realLinesChanged?: { additions: number; deletions: number; total: number },
+    year?: number,
+    dateRange?: string,
+    accurateCommitCount?: number
   ): Promise<WrappedStats> {
     const streaks = this.calculateStreak(contributions);
     const topLanguages = this.calculateTopLanguages(languageStats);
     const peakHour = this.calculatePeakHour(commits);
     const busiestDay = this.calculateBusiestDay(contributions);
     const mostActiveRepo = this.findMostActiveRepo(commits, repos);
-    const totalLinesChanged = this.calculateTotalLinesChanged(repos);
+    const totalLinesChanged = this.calculateTotalLinesChanged(repos, realLinesChanged);
 
-    // Calculate days in 2025 so far
-    const startOfYear = new Date('2025-01-01');
-    const now = new Date();
-    const daysInYear = Math.ceil((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
-    const avgCommitsPerDay = commits.length / Math.max(daysInYear, 1);
+    // Use accurate commit count from GitHub API, fallback to commits array length
+    const totalCommits = accurateCommitCount || commits.length;
+
+    // Calculate days in the selected year
+    const selectedYear = year || new Date().getFullYear();
+    const startOfYear = new Date(`${selectedYear}-01-01`);
+    const endOfYear = selectedYear === new Date().getFullYear() ? new Date() : new Date(`${selectedYear}-12-31`);
+    const daysInYear = Math.ceil((endOfYear.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+    const avgCommitsPerDay = totalCommits / Math.max(daysInYear, 1);
 
     const stats: Partial<WrappedStats> = {
       user,
-      totalCommits: commits.length,
+      totalCommits,
       totalPRs,
       totalIssues,
       totalStars: repos.reduce((sum, repo) => sum + repo.stargazers_count, 0),
@@ -486,6 +498,8 @@ export class StatsAnalyzer {
       mostActiveRepo,
       totalLinesChanged,
       avgCommitsPerDay,
+      year: selectedYear,
+      dateRange: dateRange || `${startOfYear.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endOfYear.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
     };
 
     const archetype = this.determineArchetype(
@@ -512,7 +526,8 @@ export class StatsAnalyzer {
     languageStats: { [key: string]: number },
     contributions: ContributionDay[],
     totalPRs: number,
-    totalIssues: number
+    totalIssues: number,
+    accurateCommitCount?: number
   ): YearComparison {
     const streaks = this.calculateStreak(contributions);
     const topLanguages = this.calculateTopLanguages(languageStats);
@@ -520,7 +535,7 @@ export class StatsAnalyzer {
 
     return {
       year,
-      totalCommits: commits.length,
+      totalCommits: accurateCommitCount || commits.length,
       totalPRs,
       totalIssues,
       longestStreak: streaks.longest,

@@ -67,6 +67,8 @@ export interface WrappedStats {
   achievements: Achievement[];
   insights: string[];
   avgCommitsPerDay: number;
+  year: number;
+  dateRange: string;
 }
 
 export interface Archetype {

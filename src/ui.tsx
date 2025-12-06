@@ -91,7 +91,7 @@ export function UsernameInput({ onSubmit, error, detectedUsername }: Props) {
       </Box>
 
       <Box marginBottom={3} justifyContent="center">
-        <Text color="green" dimColor>━━━ YOUR 2025 CODE JOURNEY ━━━</Text>
+        <Text color="green" dimColor>━━━ YOUR CODE JOURNEY ━━━</Text>
       </Box>
 
       {/* Menu or Input Box */}
@@ -323,9 +323,9 @@ export function ComparisonPrompt({ username, onChoice }: ComparisonPromptProps) 
 
 interface StatsDisplayProps {
   stats: WrappedStats;
-  onExport: (format?: 'png' | 'svg' | 'gif') => void;
+  onExport: (format?: 'png' | 'svg' | 'gif') => Promise<void>;
   onExit: () => void;
-  onShare?: (platform: 'twitter' | 'linkedin') => void;
+  onShare?: (platform: 'twitter' | 'linkedin') => Promise<void>;
   comparisonStats?: ComparisonStats | null;
 }
 
@@ -367,13 +367,18 @@ function ContributionsSlide({ stats }: { stats: WrappedStats }) {
   return (
     <Box flexDirection="column" alignItems="center" justifyContent="center" flexGrow={1}>
       {/* Username */}
-      <Box marginBottom={2}>
+      <Box marginBottom={1}>
         <Text color="green" dimColor>@{stats.user.login.toUpperCase()}</Text>
+      </Box>
+
+      {/* Date Range */}
+      <Box marginBottom={2}>
+        <Text color="gray" dimColor>{stats.dateRange}</Text>
       </Box>
 
       {/* Main headline */}
       <Box marginBottom={1}>
-        <Text color="white" bold>IN 2025, YOU MADE</Text>
+        <Text color="white" bold>IN {stats.year}, YOU MADE</Text>
       </Box>
 
       {/* Big number - centered */}
@@ -422,7 +427,7 @@ function LanguagesSlide({ stats }: { stats: WrappedStats }) {
         <Text color="cyan" bold>💻 YOUR TOP LANGUAGES</Text>
       </Box>
       <Box marginBottom={1}>
-        <Text color="white" dimColor>Most used in 2025</Text>
+        <Text color="white" dimColor>Most used in {stats.year}</Text>
       </Box>
 
       {/* Language bars - centered */}
@@ -658,6 +663,8 @@ function AchievementsSlide({ stats }: { stats: WrappedStats }) {
 
 function ComparisonSlide({ comparisonStats }: { comparisonStats: ComparisonStats }) {
   const { year2024, year2025, growth } = comparisonStats;
+  const prevYear = year2024.year;
+  const currYear = year2025.year;
 
   // Animate growth percentages
   const commitsGrowth = useCountUp(growth.commits, 1500);
@@ -683,7 +690,7 @@ function ComparisonSlide({ comparisonStats }: { comparisonStats: ComparisonStats
         <Text color="cyan" bold>📊 YEAR OVER YEAR COMPARISON</Text>
       </Box>
       <Box marginBottom={2}>
-        <Text color="white" dimColor>2024 vs 2025 - Your Growth Story</Text>
+        <Text color="white" dimColor>{prevYear} vs {currYear} - Your Growth Story</Text>
       </Box>
 
       <Box flexDirection="column" marginTop={1} width={85}>
@@ -759,18 +766,9 @@ function ExportSlide({ stats }: { stats: WrappedStats }) {
         </Box>
 
         <Box marginBottom={1}>
-          <Text color="green" bold>[P] </Text>
-          <Text color="white">Export as PNG (Recommended)</Text>
-        </Box>
-
-        <Box marginBottom={1}>
-          <Text color="cyan" bold>[S] </Text>
+          <Text color="cyan" bold>[E] </Text>
           <Text color="white">Export as SVG (Vector)</Text>
-        </Box>
-
-        <Box marginBottom={1}>
-          <Text color="green" bold>[G] </Text>
-          <Text color="white">Export as GIF (Experimental)</Text>
+          <Text color="gray" dimColor> → Convert to PNG at cloudconvert.com</Text>
         </Box>
 
         <Box marginBottom={1}>
@@ -792,9 +790,83 @@ function ExportSlide({ stats }: { stats: WrappedStats }) {
   );
 }
 
+function FarewellSlide({ stats, action }: { stats: WrappedStats; action?: string }) {
+  const getActionMessage = () => {
+    switch (action) {
+      case 'export':
+        return '✅ SVG exported successfully!';
+      case 'twitter':
+        return '🐦 Twitter share link saved!';
+      case 'linkedin':
+        return '💼 LinkedIn share link saved!';
+      default:
+        return '✨ All done!';
+    }
+  };
+
+  const getActionDetails = () => {
+    switch (action) {
+      case 'export':
+        return 'Your GitHub Wrapped card has been saved to gh-wrapped.svg';
+      case 'twitter':
+        return 'Share links saved to share-links.txt';
+      case 'linkedin':
+        return 'Share links saved to share-links.txt';
+      default:
+        return 'Thanks for checking out your GitHub stats!';
+    }
+  };
+
+  return (
+    <Box flexDirection="column" alignItems="center" justifyContent="center" flexGrow={1}>
+      {/* Action confirmation */}
+      <Box marginBottom={2}>
+        <Text color="green" bold>{getActionMessage()}</Text>
+      </Box>
+
+      {/* Details */}
+      <Box marginBottom={3} width={70}>
+        <Text color="cyan" dimColor>{getActionDetails()}</Text>
+      </Box>
+
+      {/* Divider */}
+      <Box marginBottom={2}>
+        <Text color="gray">━━━━━━━━━━━━━━━━━━━━━━━━━━</Text>
+      </Box>
+
+      {/* Main message */}
+      <Box marginBottom={2}>
+        <Text color="green" bold>👋 SEE YOU NEXT YEAR!</Text>
+      </Box>
+
+      {/* Year callout */}
+      <Box marginBottom={2}>
+        <Text color="white">Thanks for an amazing {stats.year}!</Text>
+      </Box>
+
+      {/* Motivational message */}
+      <Box marginBottom={3} width={70}>
+        <Text color="gray" dimColor>
+          Keep coding, keep building, keep making an impact.
+        </Text>
+      </Box>
+
+      {/* Exit instruction */}
+      <Box borderStyle="round" borderColor="green" paddingX={3} paddingY={1}>
+        <Text color="green">Press </Text>
+        <Text color="green" bold>ENTER</Text>
+        <Text color="green"> to exit</Text>
+      </Box>
+    </Box>
+  );
+}
+
 // Main Slideshow Component
 export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats }: StatsDisplayProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [actionTaken, setActionTaken] = useState<string | null>(null);
+  const [showFarewell, setShowFarewell] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Enable stdin raw mode for arrow keys on Windows
   useEffect(() => {
@@ -824,25 +896,60 @@ export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats
     baseSlides.push(<ComparisonSlide key="comparison" comparisonStats={comparisonStats} />);
   }
 
-  // Add export slide at the end
+  // Add export slide
   baseSlides.push(<ExportSlide key="export" stats={stats} />);
 
   const slides = baseSlides;
   const totalSlides = slides.length;
+  const exportSlideIndex = totalSlides - 1;
 
   useInput((input, key) => {
+    // If showing farewell slide, handle Enter to exit
+    if (showFarewell) {
+      if (key.return) {
+        onExit();
+      }
+      return;
+    }
+
+    // Prevent multiple actions while processing
+    if (isProcessing) {
+      return;
+    }
+
     // If on export slide (last slide), handle letter key shortcuts
-    if (currentSlide === totalSlides - 1) {
-      if (input === 'p' || input === 'P') {
-        onExport('png');
-      } else if (input === 's' || input === 'S') {
-        onExport('svg');
-      } else if (input === 'g' || input === 'G') {
-        onExport('gif');
+    if (currentSlide === exportSlideIndex) {
+      if (input === 'e' || input === 'E') {
+        setIsProcessing(true);
+        onExport('svg').then(() => {
+          setActionTaken('export');
+          setShowFarewell(true);
+          setIsProcessing(false);
+        }).catch(() => {
+          setIsProcessing(false);
+        });
       } else if (input === 't' || input === 'T') {
-        if (onShare) onShare('twitter');
+        if (onShare) {
+          setIsProcessing(true);
+          onShare('twitter').then(() => {
+            setActionTaken('twitter');
+            setShowFarewell(true);
+            setIsProcessing(false);
+          }).catch(() => {
+            setIsProcessing(false);
+          });
+        }
       } else if (input === 'l' || input === 'L') {
-        if (onShare) onShare('linkedin');
+        if (onShare) {
+          setIsProcessing(true);
+          onShare('linkedin').then(() => {
+            setActionTaken('linkedin');
+            setShowFarewell(true);
+            setIsProcessing(false);
+          }).catch(() => {
+            setIsProcessing(false);
+          });
+        }
       } else if (input === 'q' || input === 'Q') {
         onExit();
       } else if (key.leftArrow) {
@@ -867,12 +974,14 @@ export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats
       <Box flexDirection="column" borderStyle="double" borderColor="green" width={100} height={30}>
         {/* Header with ESC in top left, title centered */}
         <Box flexDirection="row" justifyContent="space-between" paddingY={1} paddingX={2} borderBottom borderColor="green">
-          <Text color="red" dimColor>[ESC] Exit</Text>
+          <Text color="red" dimColor>{showFarewell ? '' : '[ESC] Exit'}</Text>
           <Box flexGrow={1} justifyContent="center">
-            <Text bold color="green">GITHUB WRAPPED 2025</Text>
+            <Text bold color="green">GITHUB WRAPPED {stats.year}</Text>
           </Box>
-          {currentSlide === totalSlides - 1 ? (
-            <Text color="cyan" dimColor>Press P/S/G/T/L/Q</Text>
+          {showFarewell ? (
+            <Text color="green" dimColor>Press ENTER</Text>
+          ) : currentSlide === exportSlideIndex ? (
+            <Text color="cyan" dimColor>Press E/T/L/Q</Text>
           ) : (
             <Box width={19}></Box>
           )}
@@ -882,17 +991,25 @@ export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats
         <Box flexDirection="row" height={24} alignItems="center">
           {/* Left Arrow */}
           <Box width={3} justifyContent="center" alignItems="center">
-            {currentSlide > 0 && <Text color="cyan" bold>←</Text>}
+            {!showFarewell && currentSlide > 0 && <Text color="cyan" bold>←</Text>}
           </Box>
 
           {/* Content */}
           <Box flexDirection="column" flexGrow={1} paddingY={1}>
-            {slides[currentSlide]}
+            {isProcessing ? (
+              <Box flexDirection="column" alignItems="center" justifyContent="center" flexGrow={1}>
+                <Text color="green">Processing...</Text>
+              </Box>
+            ) : showFarewell ? (
+              <FarewellSlide stats={stats} action={actionTaken || undefined} />
+            ) : (
+              slides[currentSlide]
+            )}
           </Box>
 
           {/* Right Arrow */}
           <Box width={3} justifyContent="center" alignItems="center">
-            {currentSlide < totalSlides - 1 && <Text color="cyan" bold>→</Text>}
+            {!showFarewell && currentSlide < totalSlides - 1 && <Text color="cyan" bold>→</Text>}
           </Box>
         </Box>
 
@@ -900,11 +1017,14 @@ export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats
         <Box flexDirection="column" borderTop borderColor="green">
           {/* Progress Dots */}
           <Box justifyContent="center" paddingY={1}>
-            {Array.from({ length: totalSlides }).map((_, i) => (
+            {!showFarewell && Array.from({ length: totalSlides }).map((_, i) => (
               <Text key={i} color={i === currentSlide ? 'green' : 'gray'}>
                 {i === currentSlide ? '■' : '□'}{' '}
               </Text>
             ))}
+            {showFarewell && (
+              <Text color="green">✓ Complete</Text>
+            )}
           </Box>
         </Box>
       </Box>
