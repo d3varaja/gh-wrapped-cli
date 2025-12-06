@@ -44,3 +44,7 @@ gh-wrapped.*
 # Cache
 .cache/
 .parcel-cache/
+.bun-cache/
+
+# Bun
+bun.lockb

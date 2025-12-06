@@ -9,11 +9,12 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "tsx src/index.tsx",
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "prepublishOnly": "npm run build",
-    "test": "echo \"Tests coming soon\" && exit 0"
+    "dev": "bun run src/index.tsx",
+    "build": "bun build src/index.tsx --outdir dist --target node --minify --external yoga-wasm-web --external puppeteer",
+    "build:types": "tsc --emitDeclarationOnly",
+    "start": "bun run dist/index.js",
+    "prepublishOnly": "bun run build && bun run build:types",
+    "test": "bun test"
   },
   "keywords": [
     "github",
@@ -48,10 +49,15 @@
   "devDependencies": {
     "@types/node": "^20.10.5",
     "@types/react": "^18.2.45",
+    "react-devtools-core": "7.0.1",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   },
   "engines": {
-    "node": ">=18.0.0"
-  }
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
+  },
+  "trustedDependencies": [
+    "puppeteer"
+  ]
 }

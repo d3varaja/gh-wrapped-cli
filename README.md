@@ -10,6 +10,12 @@ A CLI tool that analyzes your GitHub activity for 2025 and generates beautiful s
 
 ## Quick Start
 
+### Using Bun (Recommended - 100x faster)
+```bash
+bunx github-wrapped-2025
+```
+
+### Using npm
 ```bash
 npx github-wrapped-2025
 ```
@@ -32,14 +38,24 @@ npx github-wrapped-2025
 
 ## Installation
 
-### Run with npx (Recommended - Zero Setup!)
+### Run with bunx (Recommended - 100x faster!)
 ```bash
-npx github-wrapped-2025
+bunx github-wrapped-2025
 ```
 No installation needed! Just run it once and the app handles everything.
 
-### Install Globally (Optional)
+### Run with npx (Also works)
 ```bash
+npx github-wrapped-2025
+```
+
+### Install Globally
+```bash
+# With Bun
+bun install -g github-wrapped-2025
+github-wrapped
+
+# With npm
 npm install -g github-wrapped-2025
 github-wrapped
 ```
@@ -48,6 +64,13 @@ github-wrapped
 ```bash
 git clone https://github.com/d3varaja/gh-wrapped-cli.git
 cd gh-wrapped-cli
+
+# Install with Bun (recommended)
+bun install
+bun run build
+bun start
+
+# Or with npm
 npm install
 npm run build
 npm start
@@ -74,21 +97,33 @@ npm start
 ## Development
 
 ### Prerequisites
-- Node.js >= 18
-- npm or yarn
+- [Bun](https://bun.sh) >= 1.0.0 (recommended) OR Node.js >= 18
+- For Bun installation: `curl -fsSL https://bun.sh/install | bash` (macOS/Linux) or `powershell -c "irm bun.sh/install.ps1 | iex"` (Windows)
 
 ### Setup
 ```bash
+# With Bun (recommended)
+bun install
+
+# Or with npm
 npm install
 ```
 
 ### Development mode
 ```bash
+# With Bun (hot reload)
+bun run dev
+
+# Or with npm
 npm run dev
 ```
 
 ### Build
 ```bash
+# With Bun (faster)
+bun run build
+
+# Or with npm
 npm run build
 ```
 
