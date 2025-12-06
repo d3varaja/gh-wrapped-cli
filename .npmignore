@@ -1,7 +1,43 @@
+# Source files (we ship compiled dist/)
 src/
 tsconfig.json
+
+# Git files
+.git/
 .gitignore
+.github/
+
+# Environment & config
 .env
-*.log
+.env.*
+bunfig.toml
+.bun-cache/
+bun.lockb
+
+# IDEs
 .vscode/
 .idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test files
+*.test.ts
+*.spec.ts
+__tests__/
+
+# Documentation (keep README.md)
+*.txt
+!README.txt
+
+# Build artifacts we don't need
+*.map
+.parcel-cache/
+.cache/
+
+# OS files
+.DS_Store
+Thumbs.db

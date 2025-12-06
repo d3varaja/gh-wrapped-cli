@@ -87,23 +87,20 @@ export class GitHubClient {
     // Get commits from up to 10 most recently updated repos
     const recentRepos = repos.slice(0, 10);
 
-    for (const repo of recentRepos) {
-      try {
-        const { data } = await this.octokit.repos.listCommits({
-          owner: this.username,
-          repo: repo.name,
-          author: this.username,
-          since: startDate.toISOString(),
-          until: endDate.toISOString(),
-          per_page: 100,
-        });
+    const commitPromises = recentRepos.map(repo =>
+      this.octokit.repos.listCommits({
+        owner: this.username,
+        repo: repo.name,
+        author: this.username,
+        since: startDate.toISOString(),
+        until: endDate.toISOString(),
+        per_page: 100,
+      }).then(({ data }) => data as Commit[])
+        .catch(() => [] as Commit[]) // Skip repos we can't access (private, deleted, etc.)
+    );
 
-        commits.push(...(data as Commit[]));
-      } catch (error) {
-        // Skip repos we can't access (private, deleted, etc.)
-        continue;
-      }
-    }
+    const allCommits = await Promise.all(commitPromises);
+    commits.push(...allCommits.flat());
 
     if (commits.length === 0) {
       throw new Error(`No commits found for ${this.username} in ${year}. Try a different year or username.`);
@@ -160,20 +157,21 @@ export class GitHubClient {
     const repos = await this.getRepositories();
     const languageStats: { [key: string]: number } = {};
 
-    for (const repo of repos) {
-      try {
-        const { data } = await this.octokit.repos.listLanguages({
-          owner: this.username,
-          repo: repo.name,
-        });
+    const languagePromises = repos.map(repo =>
+      this.octokit.repos.listLanguages({
+        owner: this.username,
+        repo: repo.name,
+      }).then(({ data }) => data)
+        .catch(() => ({})) // Skip repos with errors
+    );
 
-        for (const [language, bytes] of Object.entries(data)) {
-          languageStats[language] = (languageStats[language] || 0) + bytes;
-        }
-      } catch (error) {
-        continue;
+    const allLanguages = await Promise.all(languagePromises);
+
+    allLanguages.forEach(data => {
+      for (const [language, bytes] of Object.entries(data)) {
+        languageStats[language] = (languageStats[language] || 0) + (bytes as number);
       }
-    }
+    });
 
     return languageStats;
   }
