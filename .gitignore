@@ -50,5 +50,10 @@ share-links.txt
 .parcel-cache/
 .bun-cache/
 
+# Playwright
+.playwright/
+playwright-report/
+test-results/
+
 # Bun
 bun.lockb

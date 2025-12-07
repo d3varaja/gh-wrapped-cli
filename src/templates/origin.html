@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Wrapped 2025</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #050607;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Space Mono', monospace;
+            padding: 20px;
+        }
+
+        .card {
+            width: 100%;
+            max-width: 380px;
+            aspect-ratio: 17 / 24;
+            background: linear-gradient(135deg, #0b1010 0%, #050607 100%);
+            border: 3px solid #32ff7a;
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+            box-shadow:
+                0 0 20px rgba(50, 255, 122, 0.15),
+                0 0 0 5px #050607,
+                0 0 0 10px #32ff7a;
+            overflow: visible;
+            display: flex;
+            flex-direction: column;
+            font-family: 'Space Mono', monospace;
+        }
+
+        /* Scanlines effect */
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                repeating-linear-gradient(
+                    0deg,
+                    rgba(50, 255, 122, 0.02) 0px,
+                    rgba(50, 255, 122, 0.02) 2px,
+                    transparent 2px,
+                    transparent 4px
+                );
+            pointer-events: none;
+            border-radius: 12px;
+            z-index: 0;
+        }
+
+        .card > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #32ff7a;
+            position: relative;
+        }
+
+        .title {
+            font-size: 17px;
+            font-weight: bold;
+            color: #d7ffe8;
+            text-shadow: 0 0 8px rgba(50, 255, 122, 0.4);
+            letter-spacing: 2px;
+            font-family: 'Space Mono', monospace;
+        }
+
+        .rare-badge {
+            border: 2px solid #32ff7a;
+            padding: 8px 16px;
+            color: #d7ffe8;
+            font-size: 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(50, 255, 122, 0.3);
+            box-shadow: 0 0 8px rgba(50, 255, 122, 0.15);
+            font-family: 'Space Mono', monospace;
+        }
+
+        /* Avatar frame with dashed border */
+        .avatar-frame {
+            position: relative;
+            margin: 0 auto 18px auto;
+            border: 2px dashed #32ff7a;
+            border-radius: 8px;
+            padding: 10px;
+            background: rgba(50, 255, 122, 0.01);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: visible;
+        }
+
+        .avatar-container {
+            width: 100%;
+            aspect-ratio: 1;
+            border: 2px solid #32ff7a;
+            border-radius: 6px;
+            background: radial-gradient(circle at 35% 35%, #32ff7a 0%, #1aa657 20%, #0b1010 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-shadow: 0 0 15px rgba(50, 255, 122, 0.2);
+            position: relative;
+        }
+
+        .pixelated-avatar {
+            width: 160px;
+            height: 160px;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 2px,
+                rgba(50, 255, 122, 0.08) 2px,
+                rgba(50, 255, 122, 0.08) 4px
+            );
+            border-radius: 4px;
+        }
+
+        .avatar-container::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 35% 35%, rgba(50, 255, 122, 0.1) 0%, transparent 40%);
+            pointer-events: none;
+        }
+
+        .username {
+            font-size: 22px;
+            color: #d7ffe8;
+            margin-bottom: 12px;
+            text-shadow: 0 0 10px rgba(50, 255, 122, 0.6);
+            font-weight: 900;
+            letter-spacing: 1px;
+            font-family: 'Orbitron', 'Space Mono', monospace;
+            text-align: center;
+        }
+
+        .username::before {
+            content: '';
+            display: none;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .stat-box {
+            border: 2px solid #32ff7a;
+            border-radius: 8px;
+            padding: 12px 8px;
+            text-align: center;
+            background: rgba(50, 255, 122, 0.02);
+            box-shadow: 0 0 8px rgba(50, 255, 122, 0.12);
+            transition: all 0.3s ease;
+        }
+
+        .stat-box:hover {
+            box-shadow: 0 0 15px rgba(50, 255, 122, 0.3);
+            background: rgba(50, 255, 122, 0.06);
+        }
+
+        .stat-number {
+            font-size: 26px;
+            color: #d7ffe8;
+            font-weight: bold;
+            text-shadow: 0 0 8px rgba(50, 255, 122, 0.5);
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: #d7ffe8;
+            margin-top: 4px;
+            letter-spacing: 1px;
+            text-shadow: 0 0 5px rgba(50, 255, 122, 0.4);
+        }
+
+        .code-wizard {
+            border: 2px solid #32ff7a;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 14px;
+            background: rgba(50, 255, 122, 0.02);
+            box-shadow: 0 0 8px rgba(50, 255, 122, 0.12);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .code-wizard::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(50, 255, 122, 0.1), transparent);
+            animation: shimmer 3s infinite;
+            pointer-events: none;
+        }
+
+        @keyframes shimmer {
+            0% {
+                left: -100%;
+            }
+            100% {
+                left: 100%;
+            }
+        }
+
+        .wizard-title {
+            font-size: 18px;
+            color: #d7ffe8;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-shadow: 0 0 8px rgba(50, 255, 122, 0.5);
+            letter-spacing: 2px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .wizard-type {
+            font-size: 13px;
+            color: #d7ffe8;
+            text-shadow: 0 0 5px rgba(50, 255, 122, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .type-label {
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .pixels {
+            display: none;
+            height: 16px;
+            color: #d7ffe8;
+            letter-spacing: 2px;
+            font-weight: bold;
+        }
+
+        .pixels::before {
+            content: '';
+        }
+
+        .badges-container {
+            display: none;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            margin-top: auto;
+        }
+
+        .badge {
+            border: 2px solid #32ff7a;
+            color: #d7ffe8;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: bold;
+            background: rgba(50, 255, 122, 0.02);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-shadow: 0 0 5px rgba(50, 255, 122, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            box-shadow: 0 0 6px rgba(50, 255, 122, 0.08);
+        }
+
+        .badge:hover {
+            box-shadow: 0 0 12px rgba(50, 255, 122, 0.25);
+            background: rgba(50, 255, 122, 0.08);
+        }
+
+        .badge::before {
+            content: '■';
+            font-size: 9px;
+        }
+
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 2px dashed #32ff7a;
+            padding-top: 10px;
+            font-size: 11px;
+            color: #d7ffe8;
+            text-shadow: 0 0 5px rgba(50, 255, 122, 0.4);
+            letter-spacing: 1px;
+            position: relative;
+            overflow: visible;
+        }
+
+        @media (max-width: 600px) {
+            .card {
+                padding: 18px;
+            }
+
+            .title {
+                font-size: 16px;
+            }
+
+            .stat-number {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+
+        <div class="header">
+            <div class="title">GITHUB WRAPPED 2025</div>
+            <div class="rare-badge">ORIGIN</div>
+        </div>
+
+        <div class="avatar-frame">
+            <div class="avatar-container">
+                <div class="pixelated-avatar"></div>
+            </div>
+        </div>
+
+        <div class="username">@testuser</div>
+
+        <div class="stats-container">
+            <div class="stat-box">
+                <div class="stat-number">89</div>
+                <div class="stat-label">PRS</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">1234</div>
+                <div class="stat-label">COMMITS</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">25</div>
+                <div class="stat-label">REPOS</div>
+            </div>
+        </div>
+
+        <div class="code-wizard">
+            <div class="wizard-title">CODE WIZARD</div>
+            <div class="wizard-type">
+                <span class="type-label">TYPE:</span>
+                <span class="pixels"></span>
+                <span>NOCTURNAL</span>
+            </div>
+        </div>
+
+        <div class="badges-container">
+            <div class="badge">NIGHT OWL</div>
+            <div class="badge">PR CHAMPION</div>
+            <div class="badge">STREAK MASTER</div>
+        </div>
+
+        <div class="footer">
+            <div>#1500</div>
+            <div>2025 EDITION</div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1097,7 +1097,7 @@ function ExportSlide({ stats }: { stats: WrappedStats }) {
 
         <Box marginBottom={1}>
           <Text color="cyan" bold>[E] </Text>
-          <Text color="white">Export as SVG (Vector)</Text>
+          <Text color="white">Export as PNG</Text>
         </Box>
 
         <Box>
@@ -1269,6 +1269,10 @@ export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats
   const [actionTaken, setActionTaken] = useState<string | null>(null);
   const [showFarewell, setShowFarewell] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [exportStatus, setExportStatus] = useState<string>('');
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportPath, setExportPath] = useState<string>('');
+  const [exportSuccess, setExportSuccess] = useState(false);
 
   // Use provided values or defaults
   const boxWidth = propBoxWidth || 100;
@@ -1310,9 +1314,52 @@ export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats
   const exportSlideIndex = totalSlides - 1;
 
   useInput((input, key) => {
+    // If showing export success, handle Enter to continue to farewell
+    if (exportSuccess) {
+      if (key.return) {
+        setExportSuccess(false);
+        setActionTaken('export');
+        setShowFarewell(true);
+      }
+      return;
+    }
+
     // If showing farewell slide, handle Enter to exit
     if (showFarewell) {
       if (key.return) {
+        onExit();
+      }
+      return;
+    }
+
+    // If processing with error, allow retry with R
+    if (isProcessing && exportError) {
+      if (input === 'r' || input === 'R') {
+        setExportError(null);
+        setExportStatus('Initializing...');
+
+        // Retry export with progress feedback
+        (async () => {
+          try {
+            const { PlaywrightExporter } = await import('./export-playwright.js');
+            const exporter = new PlaywrightExporter(stats);
+
+            setExportStatus('Starting export...');
+            const outputPath = await exporter.exportPNG((status: string) => {
+              setExportStatus(status);
+            });
+
+            // Success - show success screen
+            setExportPath(outputPath);
+            setExportSuccess(true);
+            setIsProcessing(false);
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            setExportError(errorMsg);
+            setIsProcessing(false);
+          }
+        })();
+      } else if (input === 'q' || input === 'Q') {
         onExit();
       }
       return;
@@ -1327,13 +1374,30 @@ export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats
     if (currentSlide === exportSlideIndex) {
       if (input === 'e' || input === 'E') {
         setIsProcessing(true);
-        onExport('svg').then(() => {
-          setActionTaken('export');
-          setShowFarewell(true);
-          setIsProcessing(false);
-        }).catch(() => {
-          setIsProcessing(false);
-        });
+        setExportError(null);
+        setExportStatus('Initializing...');
+
+        // Execute export with progress feedback
+        (async () => {
+          try {
+            const { PlaywrightExporter } = await import('./export-playwright.js');
+            const exporter = new PlaywrightExporter(stats);
+
+            setExportStatus('Starting export...');
+            const outputPath = await exporter.exportPNG((status: string) => {
+              setExportStatus(status);
+            });
+
+            // Success - show success screen
+            setExportPath(outputPath);
+            setExportSuccess(true);
+            setIsProcessing(false);
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            setExportError(errorMsg);
+            setIsProcessing(false);
+          }
+        })();
       } else if (input === 'q' || input === 'Q') {
         onExit();
       } else if (key.leftArrow) {
@@ -1368,9 +1432,41 @@ export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats
       >
         {/* Slide content - Main content area with flexGrow */}
         <Box flexGrow={1} justifyContent="center" alignItems="center" width="100%">
-          {isProcessing ? (
+          {exportSuccess ? (
             <Box flexDirection="column" alignItems="center" justifyContent="center">
-              <Text color="green">Processing...</Text>
+              <Box marginBottom={2}>
+                <Text color="green" bold>✓ Export successful!</Text>
+              </Box>
+
+              <Box
+                borderStyle="round"
+                borderColor="green"
+                paddingX={2}
+                paddingY={1}
+                flexDirection="column"
+                alignItems="center"
+              >
+                <Text color="white" bold>{exportPath.split(/[/\\]/).pop()}</Text>
+                <Text color="dim" dimColor>{exportPath.split(/[/\\]/).slice(0, -1).join('/')}/</Text>
+              </Box>
+
+              <Box marginTop={2}>
+                <Text color="dim">[Enter] Continue</Text>
+              </Box>
+            </Box>
+          ) : isProcessing ? (
+            <Box flexDirection="column" alignItems="center" justifyContent="center">
+              <Text>
+                <Text color="green">◉</Text>
+                {' '}
+                <Text color="cyan">{exportStatus || 'Processing...'}</Text>
+              </Text>
+              {exportError && (
+                <Box marginTop={1} flexDirection="column" alignItems="center">
+                  <Text color="red">✗ {exportError}</Text>
+                  <Text color="dim" marginTop={1}>[R] Retry • [Q] Quit</Text>
+                </Box>
+              )}
             </Box>
           ) : showFarewell ? (
             <FarewellSlide stats={stats} action={actionTaken || undefined} />
@@ -1380,7 +1476,7 @@ export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats
         </Box>
 
         {/* Progress dots inside the box */}
-        {!showFarewell && (
+        {!showFarewell && !exportSuccess && !isProcessing && (
           <Box justifyContent="center" marginBottom={1}>
             {Array.from({ length: totalSlides }).map((_, i) => (
               <Text key={i} color={i === currentSlide ? 'green' : 'gray'}>
@@ -1391,7 +1487,7 @@ export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats
         )}
 
         {/* Navigation instructions inside the box */}
-        {!showFarewell && (
+        {!showFarewell && !exportSuccess && !isProcessing && (
           <Box justifyContent="center">
             {currentSlide === exportSlideIndex ? (
               <Text color="cyan" dimColor>E: Export • T: Twitter • L: LinkedIn • Q: Skip • ESC: Exit</Text>
@@ -1418,6 +1514,13 @@ export function GitHubWrappedApp({ detectedUsername }: GitHubWrappedAppProps) {
     phase: 'username_input',
     detectedUsername
   });
+
+  const { exit } = useApp();
+
+  // Clear terminal on phase changes to prevent stacking
+  useEffect(() => {
+    process.stdout.write('\x1B[2J\x1B[H');
+  }, [appState.phase]);
 
   // Get terminal dimensions
   const { stdout } = useStdout();
@@ -1618,7 +1721,9 @@ export function GitHubWrappedApp({ detectedUsername }: GitHubWrappedAppProps) {
         stats={appState.stats}
         comparisonStats={appState.comparisonStats}
         onExit={() => process.exit(0)}
-        onExport={async () => {}}
+        onExport={async () => {
+          // Export logic moved to StatsDisplay component for better state management
+        }}
         onShare={async () => {}}
         boxWidth={boxWidth}
         verticalPadding={verticalPadding}
