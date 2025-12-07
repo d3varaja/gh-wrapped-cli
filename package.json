@@ -18,10 +18,10 @@
   },
   "scripts": {
     "dev": "bun run src/index.tsx",
-    "build": "bun build src/index.tsx --outdir dist --target node --minify --external yoga-wasm-web",
-    "postbuild": "node -e \"const fs = require('fs'); fs.cpSync('src/fonts', 'dist/fonts', {recursive: true}); fs.copyFileSync('src/export-worker.mjs', 'dist/export-worker.mjs');\"",
+    "build": "bun build src/index.tsx --outdir dist --target node --minify --external playwright",
+    "postbuild": "node -e \"const fs = require('fs'); fs.cpSync('src/templates', 'dist/templates', {recursive: true}); fs.cpSync('node_modules/yoga-wasm-web/dist/yoga.wasm', 'dist/yoga.wasm');\"",
     "build:types": "tsc --emitDeclarationOnly",
-    "start": "bun run dist/index.js",
+    "start": "node dist/index.js",
     "prepublishOnly": "bun run build && bun run build:types",
     "test": "bun test"
   },
@@ -54,9 +54,8 @@
     "ink-text-input": "^5.0.1",
     "open": "11.0.0",
     "ora": "^7.0.1",
-    "react": "^18.2.0",
-    "satori": "0.18.3",
-    "sharp": "0.34.5"
+    "playwright": "^1.57.0",
+    "react": "^18.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
@@ -68,8 +67,5 @@
   "engines": {
     "node": ">=18.0.0",
     "bun": ">=1.0.0"
-  },
-  "trustedDependencies": [
-    "@resvg/resvg-js"
-  ]
+  }
 }
