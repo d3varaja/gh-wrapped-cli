@@ -1,6 +1,6 @@
 {
   "name": "github-wrapped-2025",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Your GitHub year in review - in your terminal",
   "main": "dist/index.js",
   "bin": {
