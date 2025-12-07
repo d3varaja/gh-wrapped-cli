@@ -164,10 +164,10 @@ export function UsernameInput({ onSubmit, error, detectedUsername }: Props) {
 
   // Combine menu and navigation into single selectable list
   const allSelectableItems = showMenu ? [
-    { type: 'menu', label: `✓ Use detected: ${detectedUsername}`, value: 'detected' },
-    { type: 'menu', label: '✏️  Enter manually', value: 'manual' },
-    { type: 'nav', label: 'GitHub', url: 'https://github.com/d3varaja/gh-wrapped-cli' },
-    { type: 'nav', label: 'See Demo', url: 'https://github.com/d3varaja/gh-wrapped-cli#demo' },
+    { type: 'menu' as const, label: `✓ Use detected: ${detectedUsername}`, value: 'detected' },
+    { type: 'menu' as const, label: '✏️  Enter manually', value: 'manual' },
+    { type: 'nav' as const, label: 'GitHub', url: 'https://github.com/d3varaja/gh-wrapped-cli' },
+    { type: 'nav' as const, label: 'See Demo', url: 'https://github.com/d3varaja/gh-wrapped-cli#demo' },
   ] : [];
 
   const handleMenuSelect = (item: { value: string }) => {
@@ -203,9 +203,9 @@ export function UsernameInput({ onSubmit, error, detectedUsername }: Props) {
 
     if (key.return && allSelectableItems.length > 0) {
       const selected = allSelectableItems[selectedIndex];
-      if (selected.type === 'menu') {
+      if (selected.type === 'menu' && 'value' in selected) {
         handleMenuSelect({ value: selected.value });
-      } else if (selected.type === 'nav') {
+      } else if (selected.type === 'nav' && 'url' in selected) {
         open(selected.url).catch(() => {
           // Silently fail if can't open
         });
@@ -1464,7 +1464,9 @@ export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats
               {exportError && (
                 <Box marginTop={1} flexDirection="column" alignItems="center">
                   <Text color="red">✗ {exportError}</Text>
-                  <Text color="dim" marginTop={1}>[R] Retry • [Q] Quit</Text>
+                  <Box marginTop={1}>
+                    <Text color="dim">[R] Retry • [Q] Quit</Text>
+                  </Box>
                 </Box>
               )}
             </Box>
@@ -1574,11 +1576,12 @@ export function GitHubWrappedApp({ detectedUsername }: GitHubWrappedAppProps) {
         const dateRangeStr = `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
         if (!cancelled) {
-          setAppState(prev => ({
-            ...prev,
+          setAppState({
             phase: 'fetching_data',
+            username: appState.username,
+            token: appState.token,
             message: `Fetching GitHub data for ${selectedYear}...`
-          }));
+          });
         }
 
         const [user, repos, languageStats, commits, totalPRs, totalIssues, contributions, realLinesChanged, accurateCommitCount] = await Promise.all([
@@ -1594,11 +1597,12 @@ export function GitHubWrappedApp({ detectedUsername }: GitHubWrappedAppProps) {
         ]);
 
         if (!cancelled) {
-          setAppState(prev => ({
-            ...prev,
+          setAppState({
             phase: 'fetching_data',
+            username: appState.username,
+            token: appState.token,
             message: 'Generating your wrapped with REAL data...'
-          }));
+          });
         }
 
         const stats = await analyzer.generateWrappedStats(

@@ -9,8 +9,10 @@ interface GraphQLResponse {
     bio: string;
     company: string;
     location: string;
+    createdAt: string;
     repositories: { totalCount: number };
     followers: { totalCount: number };
+    following: { totalCount: number };
     contributionsCollection: ContributionsCollectionData;
     repositories_data: RepositoriesData;
   };
@@ -21,8 +23,10 @@ interface GraphQLResponse {
     bio: string;
     company: string;
     location: string;
+    createdAt: string;
     repositories: { totalCount: number };
     followers: { totalCount: number };
+    following: { totalCount: number };
     contributionsCollection: ContributionsCollectionData;
     repositories_data: RepositoriesData;
   };
@@ -82,6 +86,8 @@ interface RepositoriesData {
     forkCount: number;
     description: string;
     url: string;
+    createdAt: string;
+    updatedAt: string;
     primaryLanguage: { name: string; color: string } | null;
   }>;
 }
@@ -127,10 +133,14 @@ export class GitHubGraphQLClient {
           bio
           company
           location
+          createdAt
           repositories(privacy: PUBLIC) {
             totalCount
           }
           followers {
+            totalCount
+          }
+          following {
             totalCount
           }
 
@@ -197,6 +207,8 @@ export class GitHubGraphQLClient {
               forkCount
               description
               url
+              createdAt
+              updatedAt
               primaryLanguage {
                 name
                 color
@@ -293,6 +305,8 @@ Required scope: read:user`);
       location: user.location,
       public_repos: user.repositories.totalCount,
       followers: user.followers.totalCount,
+      following: user.following.totalCount,
+      created_at: user.createdAt,
     } as GitHubUser;
   }
 
@@ -302,11 +316,14 @@ Required scope: read:user`);
 
     return user.repositories_data.nodes.map((repo) => ({
       name: repo.name,
+      full_name: `${user.login}/${repo.name}`,
       stargazers_count: repo.stargazerCount,
       forks_count: repo.forkCount,
       description: repo.description,
       html_url: repo.url,
       language: repo.primaryLanguage?.name || 'Unknown',
+      created_at: repo.createdAt,
+      updated_at: repo.updatedAt,
       size: 0,
     })) as Repository[];
   }
@@ -325,10 +342,12 @@ Required scope: read:user`);
         if (!contrib?.occurredAt) continue;
 
         commits.push({
+          sha: '',
           commit: {
             author: {
               date: contrib.occurredAt,
               name: user.login,
+              email: '',
             },
             message: '',
           },
