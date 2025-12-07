@@ -1327,6 +1327,12 @@ export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats
     // If showing farewell slide, handle Enter to exit
     if (showFarewell) {
       if (key.return) {
+        // Auto-open exported image if it exists
+        if (exportPath) {
+          open(exportPath).catch(() => {
+            // Silently fail if can't open
+          });
+        }
         onExit();
       }
       return;
