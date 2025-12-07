@@ -12,12 +12,12 @@ A CLI tool that analyzes your GitHub activity for 2025 and generates beautiful s
 
 ### Using Bun (Recommended - 100x faster)
 ```bash
-bunx github-wrapped-2025
+bunx gh-wrapped-2025
 ```
 
 ### Using npm
 ```bash
-npx github-wrapped-2025
+npx gh-wrapped-2025
 ```
 
 1. Enter your GitHub username
@@ -40,23 +40,23 @@ npx github-wrapped-2025
 
 ### Run with bunx (Recommended - 100x faster!)
 ```bash
-bunx github-wrapped-2025
+bunx gh-wrapped-2025
 ```
 No installation needed! Just run it once and the app handles everything.
 
 ### Run with npx (Also works)
 ```bash
-npx github-wrapped-2025
+npx gh-wrapped-2025
 ```
 
 ### Install Globally
 ```bash
 # With Bun
-bun install -g github-wrapped-2025
+bun install -g gh-wrapped-2025
 github-wrapped
 
 # With npm
-npm install -g github-wrapped-2025
+npm install -g gh-wrapped-2025
 github-wrapped
 ```
 
@@ -65,16 +65,19 @@ github-wrapped
 git clone https://github.com/d3varaja/gh-wrapped-cli.git
 cd gh-wrapped-cli
 
-# Install with Bun (recommended)
-bun install
-bun run build
-bun start
+# Install dependencies
+bun install  # or npm install
 
-# Or with npm
-npm install
-npm run build
+# Build the project
+bun run build  # or npm run build
+
+# Run the built version (use Node, not Bun - see note below)
 npm start
+# or
+node dist/index.js
 ```
+
+**⚠️ Important:** Always use **Node** to run the built version (`npm start` or `node dist/index.js`), not `bun start`. The image export feature uses Playwright which has known compatibility issues with Bun's runtime, especially on Windows. Bun is great for development and building, but Node is required for running the final output.
 
 ## How It Works
 
@@ -111,7 +114,7 @@ npm install
 
 ### Development mode
 ```bash
-# With Bun (hot reload)
+# With Bun (recommended - hot reload)
 bun run dev
 
 # Or with npm
@@ -120,11 +123,19 @@ npm run dev
 
 ### Build
 ```bash
-# With Bun (faster)
+# With Bun (recommended - faster)
 bun run build
 
 # Or with npm
 npm run build
+```
+
+### Run built version
+```bash
+# IMPORTANT: Use Node, not Bun (Playwright compatibility)
+npm start
+# or
+node dist/index.js
 ```
 
 ### Project Structure
@@ -143,7 +154,7 @@ src/
 You can also use this as a library:
 
 ```typescript
-import { GitHubClient } from 'github-wrapped-2025';
+import { GitHubClient } from 'gh-wrapped-2025';
 
 const client = new GitHubClient('username');
 const repos = await client.getRepositories();
@@ -188,7 +199,7 @@ If you're developing or running this locally, you can set a token beforehand:
 
 ```bash
 # Environment variable (one-time)
-GITHUB_TOKEN=your_token npx github-wrapped-2025
+GITHUB_TOKEN=your_token npx gh-wrapped-2025
 
 # Or create .env file in project directory
 echo "GITHUB_TOKEN=your_token" > .env

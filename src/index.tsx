@@ -28,15 +28,22 @@ function detectGitHubUsername(): string | null {
 async function main() {
   const detected = detectGitHubUsername();
 
-  // Clear terminal
-  process.stdout.write('\x1B[2J\x1B[3J');
+  // Clear terminal and reset cursor
+  process.stdout.write('\x1B[2J\x1B[3J\x1B[H');
 
-  // Single render - never unmounts
+  // Hide cursor during render
+  process.stdout.write('\x1B[?25l');
+
+  // Single render with proper cleanup
   const { waitUntilExit } = render(
     <GitHubWrappedApp detectedUsername={detected} />
   );
 
   await waitUntilExit();
+
+  // Show cursor again
+  process.stdout.write('\x1B[?25h');
+
   process.exit(0);
 }
 
