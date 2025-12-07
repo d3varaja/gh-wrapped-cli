@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, Newline, useInput, useApp, useStdout } from 'ink';
 import Spinner from 'ink-spinner';
 import TextInput from 'ink-text-input';
@@ -168,8 +168,6 @@ export function UsernameInput({ onSubmit, error, detectedUsername }: Props) {
     { type: 'menu', label: '✏️  Enter manually', value: 'manual' },
     { type: 'nav', label: 'GitHub', url: 'https://github.com/d3varaja/gh-wrapped-cli' },
     { type: 'nav', label: 'See Demo', url: 'https://github.com/d3varaja/gh-wrapped-cli#demo' },
-    { type: 'nav', label: 'Discord', url: 'https://discord.gg/your-server' },
-    { type: 'nav', label: 'X', url: 'https://twitter.com/d3varaja' },
   ] : [];
 
   const handleMenuSelect = (item: { value: string }) => {
@@ -1291,25 +1289,27 @@ export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats
     };
   }, []);
 
-  // Build slides array conditionally
-  const baseSlides = [
-    <ContributionsSlide key="contrib" stats={stats} />,
-    <LanguagesSlide key="langs" stats={stats} />,
-    <ArchetypeSlide key="arch" stats={stats} />,
-    <StreakSlide key="streak" stats={stats} />,
-    <PRsAndIssuesSlide key="prs" stats={stats} />,
-    <AchievementsSlide key="achieve" stats={stats} />,
-  ];
+  // Build slides array conditionally (memoized to prevent recreation on every render)
+  const slides = useMemo(() => {
+    const baseSlides = [
+      <ContributionsSlide key="contrib" stats={stats} />,
+      <LanguagesSlide key="langs" stats={stats} />,
+      <ArchetypeSlide key="arch" stats={stats} />,
+      <StreakSlide key="streak" stats={stats} />,
+      <PRsAndIssuesSlide key="prs" stats={stats} />,
+      <AchievementsSlide key="achieve" stats={stats} />,
+    ];
 
-  // Add comparison slide if data is available
-  if (comparisonStats) {
-    baseSlides.push(<ComparisonSlide key="comparison" comparisonStats={comparisonStats} />);
-  }
+    // Add comparison slide if data is available
+    if (comparisonStats) {
+      baseSlides.push(<ComparisonSlide key="comparison" comparisonStats={comparisonStats} />);
+    }
 
-  // Add export slide
-  baseSlides.push(<ExportSlide key="export" stats={stats} />);
+    // Add export slide
+    baseSlides.push(<ExportSlide key="export" stats={stats} />);
 
-  const slides = baseSlides;
+    return baseSlides;
+  }, [stats, comparisonStats]);
   const totalSlides = slides.length;
   const exportSlideIndex = totalSlides - 1;
 
@@ -1515,13 +1515,6 @@ export function GitHubWrappedApp({ detectedUsername }: GitHubWrappedAppProps) {
     detectedUsername
   });
 
-  const { exit } = useApp();
-
-  // Clear terminal on phase changes to prevent stacking
-  useEffect(() => {
-    process.stdout.write('\x1B[2J\x1B[H');
-  }, [appState.phase]);
-
   // Get terminal dimensions
   const { stdout } = useStdout();
   const termWidth = stdout?.columns || 80;
@@ -1661,7 +1654,6 @@ export function GitHubWrappedApp({ detectedUsername }: GitHubWrappedAppProps) {
     };
   }, [appState.phase, appState.phase === 'fetching_data' ? appState.username : null, appState.phase === 'fetching_data' ? appState.token : null]);
 
-  // Render based on current phase
   if (appState.phase === 'username_input') {
     return (
       <UsernameInput

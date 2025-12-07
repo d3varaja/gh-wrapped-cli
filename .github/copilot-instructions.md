@@ -7,15 +7,16 @@ This file gives targeted, actionable guidance for an AI coding agent working on 
 **Why this matters:** the app is a CLI + image-exporter that fetches GitHub data, analyzes it, renders a terminal UI (Ink) and optionally exports images (Satori → Sharp/Resvg). Many behaviors are implemented by coordinating multiple files (data fetch → analysis → UI → export worker).
 
 **Quick facts**
-- **Runtime:** ESM + TypeScript (built to run under Bun; Node used for the export worker)
-- **Preferred runner:** `bun` (recommended in `README.md`) — use `bun install`, `bun run build`, `bun run dev`, `bun start`
+- **Runtime:** ESM + TypeScript (built with Bun; Node required for running due to Playwright)
+- **Preferred workflow:** `bun` for dev/build, `node` for running — use `bun install`, `bun run build`, `bun run dev`, then `npm start` or `node dist/index.js`
 - **Key dirs/files:** `src/index.tsx`, `src/ui.tsx`, `src/github.ts`, `src/github-graphql*.ts`, `src/analytics.ts`, `src/export.ts`, `src/export-worker.mjs`, `src/types.ts`, `src/fonts/`
 
 **Commands**
 - Install deps: `bun install` (or `npm install`)
 - Dev (hot reload with Bun): `bun run dev`
-- Build: `bun run build`
-- Run locally: `bun start` or `bunx github-wrapped-2025`
+- Build: `bun run build` (use Bun - faster)
+- Run built version: `npm start` or `node dist/index.js` (IMPORTANT: use Node, not Bun - Playwright compatibility)
+- Run without installing: `bunx gh-wrapped-2025` or `npx gh-wrapped-2025`
 
 **Important runtime notes**
 - Exports use a Node worker (`src/export-worker.mjs`) invoked via file-based IPC (temp JSON files). This is intentional to avoid Bun + WASM and Windows pipe issues — do not replace this with a naive child pipe without handling the Windows case.
@@ -46,7 +47,7 @@ This file gives targeted, actionable guidance for an AI coding agent working on 
 - Run app locally (recommended):
   - `bun install`
   - `bun run build`
-  - `bun start`
+  - `npm start` (or `node dist/index.js` - use Node, NOT Bun)
 
 - Run export worker directly for debugging:
   - `node src/export-worker.mjs /path/to/input.json /path/to/output.json`
@@ -61,7 +62,8 @@ This file gives targeted, actionable guidance for an AI coding agent working on 
 - `src/export.ts` + `src/export-worker.mjs` — the export orchestration and worker contract
 
 **Testing & verification guidance**
-- Use `bun run dev` for iterating UI changes (fast). Use `bun run build` then `bun start` to replicate production behavior.
+- Use `bun run dev` for iterating UI changes (fast). Use `bun run build` then `npm start` (or `node dist/index.js`) to replicate production behavior.
 - For export changes, run the worker directly with `node` and a synthetic `input.json` containing a minimal `WrappedStats` object to validate Satori → Sharp rendering.
+- **IMPORTANT:** Never test with `bun start` - Playwright has compatibility issues with Bun runtime. Always use Node for running the built version.
 
 If anything in this guidance is unclear or you want more detail for a specific area (e.g., GraphQL queries, export fonts, or how achievements are calculated), tell me which part and I will expand or update this file.
