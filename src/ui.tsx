@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Text, Newline, useInput, useApp } from 'ink';
+import { Box, Text, Newline, useInput, useApp, useStdout } from 'ink';
 import Spinner from 'ink-spinner';
 import TextInput from 'ink-text-input';
 import SelectInput from 'ink-select-input';
 import chalk from 'chalk';
-import type { WrappedStats, ComparisonStats } from './types.js';
+import open from 'open';
+import type { WrappedStats, ComparisonStats, AppState } from './types.js';
+import { GitHubGraphQLClient } from './github-graphql-fixed.js';
+import { StatsAnalyzer } from './analytics.js';
 
 // Matrix green color
 const green = '#00FF41';
@@ -20,16 +23,69 @@ function useCountUp(target: number, duration: number = 1500) {
   return target;
 }
 
-// Hook 2: Progress bar animation (disabled for stability)
+// Hook 2: Progress bar animation (Node.js compatible)
 function useProgressBar(targetPercentage: number, delay: number = 0, duration: number = 800) {
-  // Return target immediately without animation to prevent re-render loop
-  return targetPercentage;
+  const [currentPercentage, setCurrentPercentage] = useState(0);
+
+  useEffect(() => {
+    // Wait for delay before starting animation
+    const delayTimer = setTimeout(() => {
+      const startTime = Date.now();
+      const startValue = 0;
+      const frameRate = 16; // ~60fps
+
+      const animate = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Easing function for smooth animation (ease-out)
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const current = startValue + (targetPercentage - startValue) * eased;
+
+        setCurrentPercentage(current);
+
+        if (progress < 1) {
+          setTimeout(animate, frameRate);
+        } else {
+          setCurrentPercentage(targetPercentage);
+        }
+      };
+
+      animate();
+    }, delay);
+
+    return () => clearTimeout(delayTimer);
+  }, [targetPercentage, delay, duration]);
+
+  return currentPercentage;
 }
 
 // Hook 3: Staggered reveal for list items (disabled for stability)
 function useStaggeredReveal(totalItems: number, delayBetween: number = 150) {
   // Return total immediately without animation to prevent re-render loop
   return totalItems;
+}
+
+// Hook 4: Pulse animation with smooth transition (cycles through brightness levels)
+function usePulse(interval: number = 200) {
+  const [brightness, setBrightness] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setBrightness(prev => (prev + 1) % 6); // Cycle through 6 states: 0->1->2->3->4->5->0
+    }, interval);
+
+    return () => clearInterval(timer);
+  }, [interval]);
+
+  // Map brightness to visual state
+  // 0: full bright
+  // 1: bright
+  // 2: medium (dim)
+  // 3: low (very dim)
+  // 4: medium (dim)
+  // 5: bright
+  return brightness;
 }
 
 interface Props {
@@ -49,10 +105,72 @@ export function UsernameInput({ onSubmit, error, detectedUsername }: Props) {
     }
   }, []);
 
+  // Get terminal dimensions for 4:3 ratio box
+  const { stdout } = useStdout();
+  const termWidth = stdout?.columns || 80;
+  const termHeight = stdout?.rows || 24;
+
+  // Calculate 1:1 visual square (accounting for terminal character aspect ratio)
+  // Terminal characters are ~2:1 (height:width), so for visual square: height = width * 0.5
+  // Use 98% of available space for larger display
+  const usableWidth = Math.floor(termWidth * 0.98);
+  const usableHeight = Math.floor(termHeight * 0.98);
+
+  // Calculate dimensions for visually square appearance
+  let boxWidth = usableWidth;
+  let boxHeight = Math.floor(boxWidth * 0.5); // Account for character aspect ratio
+
+  // Adjust if height exceeds available space
+  if (boxHeight > usableHeight) {
+    boxHeight = usableHeight;
+    boxWidth = Math.floor(boxHeight * 2); // Maintain visual square ratio
+  }
+
+  // Ensure minimum width but allow height to shrink for centering
+  boxWidth = Math.max(boxWidth, 80);
+
+  // Don't enforce minimum height - let it shrink to fit terminal
+  // This allows vertical centering to work properly
+
+  // Calculate vertical padding for centering (leave some margin)
+  const verticalPadding = Math.max(1, Math.floor((termHeight - boxHeight - 4) / 2));
+
+  // Logo - complete ASCII art (smaller spacing)
+  const logoLines = [
+    '  ██████╗ ██╗████████╗██╗  ██╗██╗   ██╗██████╗ ',
+    ' ██╔════╝ ██║╚══██╔══╝██║  ██║██║   ██║██╔══██╗',
+    ' ██║  ███╗██║   ██║   ███████║██║   ██║██████╔╝',
+    ' ██║   ██║██║   ██║   ██╔══██║██║   ██║██╔══██╗',
+    ' ╚██████╔╝██║   ██║   ██║  ██║╚██████╔╝██████╔╝',
+    '  ╚═════╝ ╚═╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ',
+    ' ██╗    ██╗██████╗  █████╗ ██████╗ ██████╗ ███████╗██████╗ ',
+    ' ██║    ██║██╔══██╗██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗',
+    ' ██║ █╗ ██║██████╔╝███████║██████╔╝██████╔╝█████╗  ██║  ██║',
+    ' ██║███╗██║██╔══██╗██╔══██║██╔═══╝ ██╔═══╝ ██╔══╝  ██║  ██║',
+    ' ╚███╔███╔╝██║  ██║██║  ██║██║     ██║     ███████╗██████╔╝',
+    '  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝     ╚══════╝╚═════╝ '
+  ];
+
   const menuItems = [
     { label: `✓ Use detected: ${detectedUsername}`, value: 'detected' },
     { label: '✏️  Enter manually', value: 'manual' },
   ];
+
+  // Unified selection state for all items (menu + navigation)
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  // Show menu only if we have a detected username and user hasn't chosen manual entry
+  const showMenu = detectedUsername && !manualEntry;
+
+  // Combine menu and navigation into single selectable list
+  const allSelectableItems = showMenu ? [
+    { type: 'menu', label: `✓ Use detected: ${detectedUsername}`, value: 'detected' },
+    { type: 'menu', label: '✏️  Enter manually', value: 'manual' },
+    { type: 'nav', label: 'GitHub', url: 'https://github.com/d3varaja/gh-wrapped-cli' },
+    { type: 'nav', label: 'See Demo', url: 'https://github.com/d3varaja/gh-wrapped-cli#demo' },
+    { type: 'nav', label: 'Discord', url: 'https://discord.gg/your-server' },
+    { type: 'nav', label: 'X', url: 'https://twitter.com/d3varaja' },
+  ] : [];
 
   const handleMenuSelect = (item: { value: string }) => {
     if (item.value === 'detected' && detectedUsername) {
@@ -68,72 +186,146 @@ export function UsernameInput({ onSubmit, error, detectedUsername }: Props) {
     }
   };
 
-  // Show menu only if we have a detected username and user hasn't chosen manual entry
-  const showMenu = detectedUsername && !manualEntry;
+  // Handle unified arrow key navigation
+  useInput((input, key) => {
+    // Only handle when showing menu
+    if (!showMenu) return;
+
+    if (key.upArrow) {
+      setSelectedIndex((prev) =>
+        prev === 0 ? allSelectableItems.length - 1 : prev - 1
+      );
+    }
+
+    if (key.downArrow) {
+      setSelectedIndex((prev) =>
+        (prev + 1) % allSelectableItems.length
+      );
+    }
+
+    if (key.return && allSelectableItems.length > 0) {
+      const selected = allSelectableItems[selectedIndex];
+      if (selected.type === 'menu') {
+        handleMenuSelect({ value: selected.value });
+      } else if (selected.type === 'nav') {
+        open(selected.url).catch(() => {
+          // Silently fail if can't open
+        });
+      }
+    }
+  });
 
   return (
-    <Box flexDirection="column" padding={2}>
-      {/* Title - ASCII Art */}
-      <Box marginBottom={1} flexDirection="column">
-        <Text bold color="green">  ██████  ██ ████████ ██   ██ ██    ██ ██████  </Text>
-        <Text bold color="green"> ██       ██    ██    ██   ██ ██    ██ ██   ██ </Text>
-        <Text bold color="green"> ██   ███ ██    ██    ███████ ██    ██ ██████  </Text>
-        <Text bold color="green"> ██    ██ ██    ██    ██   ██ ██    ██ ██   ██ </Text>
-        <Text bold color="green">  ██████  ██    ██    ██   ██  ██████  ██████  </Text>
-      </Box>
-
-      <Box marginBottom={1} flexDirection="column">
-        <Text bold color="green"> ██     ██ ██████   █████  ██████  ██████  ███████ ██████  </Text>
-        <Text bold color="green"> ██     ██ ██   ██ ██   ██ ██   ██ ██   ██ ██      ██   ██ </Text>
-        <Text bold color="green"> ██  █  ██ ██████  ███████ ██████  ██████  █████   ██   ██ </Text>
-        <Text bold color="green"> ██ ███ ██ ██   ██ ██   ██ ██      ██      ██      ██   ██ </Text>
-        <Text bold color="green">  ███ ███  ██   ██ ██   ██ ██      ██      ███████ ██████  </Text>
-      </Box>
-
-      <Box marginBottom={3} justifyContent="center">
-        <Text color="green" dimColor>━━━ YOUR CODE JOURNEY ━━━</Text>
-      </Box>
-
-      {/* Menu or Input Box */}
+    <Box
+      flexDirection="column"
+      alignItems="center"
+      width="100%"
+    >
       <Box
-        borderStyle="single"
-        borderColor="green"
-        paddingX={2}
-        paddingY={1}
         flexDirection="column"
-        width={60}
+        borderStyle="double"
+        borderColor="green"
+        paddingX={4}
+        paddingY={1}
+        width={boxWidth}
+        height={boxHeight}
+        alignItems="center"
+        marginTop={verticalPadding}
       >
-        {error && (
-          <Box marginBottom={1}>
-            <Text color="red">{error}</Text>
-          </Box>
-        )}
+        {/* Top spacer to prevent cut-off */}
+        <Text> </Text>
 
-        {showMenu ? (
-          <Box flexDirection="column">
+        {/* Title - Compact ASCII Logo */}
+        <Box marginBottom={1} flexDirection="column" alignItems="center">
+          {logoLines.map((line, i) => (
+            <Text key={i} bold color="green">{line}</Text>
+          ))}
+        </Box>
+
+        <Box marginBottom={3} justifyContent="center">
+          <Text color="green" dimColor>━━━ YOUR 2025 CODE JOURNEY ━━━</Text>
+        </Box>
+
+        {/* Menu or Input Box */}
+        <Box
+          borderStyle="single"
+          borderColor="green"
+          paddingX={2}
+          paddingY={1}
+          flexDirection="column"
+          width={70}
+        >
+          {error && (
             <Box marginBottom={1}>
-              <Text color="green">&gt; Select GitHub username</Text>
+              <Text color="red">{error}</Text>
             </Box>
-            <Box marginBottom={1}>
-              <Text color="cyan" dimColor>Use ↑↓ arrows to select, Enter to confirm</Text>
+          )}
+
+          {showMenu ? (
+            <Box flexDirection="column">
+              <Box marginBottom={1}>
+                <Text color="green">&gt; Select option</Text>
+              </Box>
+              <Box marginBottom={1}>
+                <Text color="cyan" dimColor>Use ↑↓ arrows to select, Enter to confirm</Text>
+              </Box>
+
+              {/* Render menu items manually */}
+              {allSelectableItems.slice(0, 2).map((item, i) => (
+                <Box key={i}>
+                  <Text color={selectedIndex === i ? "white" : "green"}>
+                    {selectedIndex === i ? '❯ ' : '  '}{item.label}
+                  </Text>
+                </Box>
+              ))}
             </Box>
-            <SelectInput items={menuItems} onSelect={handleMenuSelect} />
-          </Box>
-        ) : (
-          <Box flexDirection="column">
-            <Box marginBottom={1}>
-              <Text color="green">&gt; Enter GitHub username</Text>
+          ) : (
+            <Box flexDirection="column">
+              <Box marginBottom={1}>
+                <Text color="green">&gt; Enter GitHub username</Text>
+              </Box>
+              <Box>
+                <Text color="green">&gt;_ </Text>
+                <TextInput
+                  value={username}
+                  onChange={(value) => setUsername(value)}
+                  onSubmit={() => handleSubmit()}
+                />
+              </Box>
             </Box>
-            <Box>
-              <Text color="green">&gt;_ </Text>
-              <TextInput
-                value={username}
-                onChange={(value) => setUsername(value)}
-                onSubmit={() => handleSubmit()}
-              />
-            </Box>
-          </Box>
-        )}
+          )}
+        </Box>
+
+        {/* Navigation Bar - Unified with arrow keys */}
+        <Box marginTop={3} justifyContent="center" gap={2}>
+          {showMenu && allSelectableItems.slice(2).map((item, i) => {
+            const actualIndex = i + 2; // Offset by 2 menu items
+            const isSelected = selectedIndex === actualIndex;
+
+            return (
+              <React.Fragment key={item.label}>
+                <Text color={isSelected ? "white" : "green"}>[ </Text>
+                <Text
+                  color={isSelected ? "white" : "green"}
+                  bold={isSelected}
+                >
+                  {item.label}
+                </Text>
+                <Text color={isSelected ? "white" : "green"}> ]</Text>
+              </React.Fragment>
+            );
+          })}
+        </Box>
+
+        <Box justifyContent="center" marginTop={1}>
+          <Text color="green" dimColor>
+            {showMenu && selectedIndex < 2
+              ? 'Use ↑↓ arrows to navigate all options • Press Enter to select'
+              : showMenu && selectedIndex >= 2
+              ? `Press Enter to open ${allSelectableItems[selectedIndex]?.label || ''} • github.com/d3varaja/gh-wrapped-cli`
+              : 'github.com/d3varaja/gh-wrapped-cli'}
+          </Text>
+        </Box>
       </Box>
     </Box>
   );
@@ -327,6 +519,8 @@ interface StatsDisplayProps {
   onExit: () => void;
   onShare?: (platform: 'twitter' | 'linkedin') => Promise<void>;
   comparisonStats?: ComparisonStats | null;
+  boxWidth?: number;
+  verticalPadding?: number;
 }
 
 function generateContributionHeatmap(contributions: any[]): string[] {
@@ -364,16 +558,33 @@ function generateContributionHeatmap(contributions: any[]): string[] {
 function ContributionsSlide({ stats }: { stats: WrappedStats }) {
   const animatedCount = useCountUp(stats.totalCommits, 1500);
 
+  // Bold ASCII art for "OVERVIEW"
+  const titleArt = [
+    ' ██████╗ ██╗   ██╗███████╗██████╗ ██╗   ██╗██╗███████╗██╗    ██╗',
+    '██╔═══██╗██║   ██║██╔════╝██╔══██╗██║   ██║██║██╔════╝██║    ██║',
+    '██║   ██║██║   ██║█████╗  ██████╔╝██║   ██║██║█████╗  ██║ █╗ ██║',
+    '██║   ██║╚██╗ ██╔╝██╔══╝  ██╔══██╗╚██╗ ██╔╝██║██╔══╝  ██║███╗██║',
+    '╚██████╔╝ ╚████╔╝ ███████╗██║  ██║ ╚████╔╝ ██║███████╗╚███╔███╔╝',
+    ' ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚═╝╚══════╝ ╚══╝╚══╝ '
+  ];
+
   return (
     <Box flexDirection="column" alignItems="center" justifyContent="center" flexGrow={1}>
       {/* Username */}
       <Box marginBottom={1}>
-        <Text color="green" dimColor>@{stats.user.login.toUpperCase()}</Text>
+        <Text color="green" bold>@{stats.user.login.toUpperCase()}</Text>
       </Box>
 
       {/* Date Range */}
-      <Box marginBottom={2}>
+      <Box marginBottom={1}>
         <Text color="gray" dimColor>{stats.dateRange}</Text>
+      </Box>
+
+      {/* ASCII Title */}
+      <Box marginBottom={1} flexDirection="column" alignItems="center">
+        {titleArt.map((line, i) => (
+          <Text key={i} color="cyan" bold>{line}</Text>
+        ))}
       </Box>
 
       {/* Main headline */}
@@ -381,34 +592,47 @@ function ContributionsSlide({ stats }: { stats: WrappedStats }) {
         <Text color="white" bold>IN {stats.year}, YOU MADE</Text>
       </Box>
 
-      {/* Big number - centered */}
-      <Box marginBottom={3}>
+      {/* Big number - centered, larger and bolder */}
+      <Box marginBottom={2}>
         <Text color="green" bold>
-          {animatedCount} COMMITS
+          {formatNumber(animatedCount)} COMMITS
         </Text>
       </Box>
 
       {/* Stats box - centered with border */}
       <Box borderStyle="round" borderColor="green" paddingX={4} paddingY={1}>
-        <Box flexDirection="column" width={60}>
+        <Box flexDirection="column" width={65}>
+          {/* Total Commits - Green */}
           <Box flexDirection="row" justifyContent="space-between" marginBottom={1}>
-            <Text color="cyan">💻 Total Commits</Text>
-            <Text color="green" bold>{stats.totalCommits}</Text>
+            <Text color="gray" dimColor>💻  Total Commits</Text>
+            <Text color="green" bold>{formatNumber(stats.totalCommits)}</Text>
+          </Box>
+          <Box marginBottom={1}>
+            <Text color="gray" dimColor>{'─'.repeat(65)}</Text>
           </Box>
 
+          {/* Pull Requests - Magenta */}
           <Box flexDirection="row" justifyContent="space-between" marginBottom={1}>
-            <Text color="cyan">📊 Pull Requests</Text>
-            <Text color="green" bold>{stats.totalPRs}</Text>
+            <Text color="gray" dimColor>📊  Pull Requests</Text>
+            <Text color="magenta" bold>{formatNumber(stats.totalPRs)}</Text>
+          </Box>
+          <Box marginBottom={1}>
+            <Text color="gray" dimColor>{'─'.repeat(65)}</Text>
           </Box>
 
+          {/* Issues Opened - Yellow */}
           <Box flexDirection="row" justifyContent="space-between" marginBottom={1}>
-            <Text color="cyan">🐛 Issues Opened</Text>
-            <Text color="green" bold>{stats.totalIssues}</Text>
+            <Text color="gray" dimColor>🐛  Issues Opened</Text>
+            <Text color="yellow" bold>{formatNumber(stats.totalIssues)}</Text>
+          </Box>
+          <Box marginBottom={1}>
+            <Text color="gray" dimColor>{'─'.repeat(65)}</Text>
           </Box>
 
+          {/* Daily Average - Red/Orange */}
           <Box flexDirection="row" justifyContent="space-between">
-            <Text color="cyan">🔥 Daily Average</Text>
-            <Text color="green" bold>{stats.avgCommitsPerDay.toFixed(1)} commits/day</Text>
+            <Text color="gray" dimColor>🔥  Daily Average</Text>
+            <Text color="red" bold>{stats.avgCommitsPerDay.toFixed(1)} commits/day</Text>
           </Box>
         </Box>
       </Box>
@@ -420,12 +644,26 @@ function LanguagesSlide({ stats }: { stats: WrappedStats }) {
   const topLangs = stats.topLanguages.slice(0, 5);
   const colors = ['#FF6B6B', '#FFA500', '#FFD700', '#4ECDC4', '#4A9EFF'];
 
+  // Bold ASCII art for "LANGUAGES"
+  const titleArt = [
+    '██╗      █████╗ ███╗   ██╗ ██████╗ ███████╗',
+    '██║     ██╔══██╗████╗  ██║██╔════╝ ██╔════╝',
+    '██║     ███████║██╔██╗ ██║██║  ███╗███████╗',
+    '██║     ██╔══██║██║╚██╗██║██║   ██║╚════██║',
+    '███████╗██║  ██║██║ ╚████║╚██████╔╝███████║',
+    '╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚══════╝'
+  ];
+
   return (
     <Box flexDirection="column" alignItems="center" justifyContent="center" flexGrow={1}>
-      {/* Title */}
-      <Box marginBottom={1}>
-        <Text color="cyan" bold>💻 YOUR TOP LANGUAGES</Text>
+      {/* ASCII Title */}
+      <Box marginBottom={1} flexDirection="column" alignItems="center">
+        {titleArt.map((line, i) => (
+          <Text key={i} color="cyan" bold>{line}</Text>
+        ))}
       </Box>
+
+      {/* Subtitle */}
       <Box marginBottom={1}>
         <Text color="white" dimColor>Most used in {stats.year}</Text>
       </Box>
@@ -468,32 +706,68 @@ function LanguageBar({ name, percentage, color, delay }: { name: string, percent
 }
 
 function ArchetypeSlide({ stats }: { stats: WrappedStats }) {
+  // Bold ASCII art for "PROFILE"
+  const titleArt = [
+    '██████╗ ██████╗  ██████╗ ███████╗██╗██╗     ███████╗',
+    '██╔══██╗██╔══██╗██╔═══██╗██╔════╝██║██║     ██╔════╝',
+    '██████╔╝██████╔╝██║   ██║█████╗  ██║██║     █████╗  ',
+    '██╔═══╝ ██╔══██╗██║   ██║██╔══╝  ██║██║     ██╔══╝  ',
+    '██║     ██║  ██║╚██████╔╝██║     ██║███████╗███████╗',
+    '╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚══════╝╚══════╝'
+  ];
+
+  const isNocturnal = stats.peakHour >= 22 || stats.peakHour <= 5;
+  const pulseState = usePulse(200); // Pulse every 200ms
+
   return (
     <Box flexDirection="column" alignItems="center" justifyContent="center" flexGrow={1}>
-      {/* Emoji */}
-      <Box marginBottom={3}>
-        <Text>{stats.archetype.emoji}</Text>
+      {/* ASCII Title */}
+      <Box marginBottom={1} flexDirection="column" alignItems="center">
+        {titleArt.map((line, i) => (
+          <Text key={i} color="cyan" bold>{line}</Text>
+        ))}
       </Box>
 
       {/* Title */}
       <Box marginBottom={1}>
-        <Text color="cyan" bold>YOU ARE A</Text>
+        <Text color="gray" dimColor>YOU ARE A</Text>
       </Box>
 
-      {/* Archetype name */}
-      <Box marginBottom={2}>
-        <Text color="green" bold>{stats.archetype.name.toUpperCase()}</Text>
+      {/* Archetype name - bigger and more colorful */}
+      <Box marginBottom={1}>
+        <Text color="magenta" bold>{stats.archetype.name.toUpperCase()}</Text>
       </Box>
 
-      {/* Description - centered with max width */}
-      <Box marginBottom={3} width={70}>
-        <Text color="white" dimColor>{stats.archetype.description}</Text>
+      {/* Visual separator */}
+      <Box marginBottom={1}>
+        <Text color="gray" dimColor>{'─'.repeat(50)}</Text>
       </Box>
 
-      {/* Type badge */}
-      <Box borderStyle="round" borderColor="green" paddingX={3} paddingY={0}>
-        <Text color="green">
-          {stats.peakHour >= 22 || stats.peakHour <= 5 ? '🌙 NOCTURNAL CODER' : '☀️ DAYTIME CODER'}
+      {/* Description - centered, split into lines */}
+      <Box marginBottom={1} flexDirection="column" alignItems="center">
+        {stats.archetype.description.split('. ').map((line, i) => (
+          <Text key={i} color="white">{line}{i < stats.archetype.description.split('. ').length - 1 ? '.' : ''}</Text>
+        ))}
+      </Box>
+
+      {/* Visual separator */}
+      <Box marginBottom={1}>
+        <Text color="gray" dimColor>{'─'.repeat(50)}</Text>
+      </Box>
+
+      {/* Type badge - enhanced with color coding and pulsing */}
+      <Box
+        borderStyle="round"
+        borderColor={isNocturnal ? "magenta" : "yellow"}
+        paddingX={2}
+        paddingY={1}
+      >
+        <Text
+          color={pulseState === 3 ? "gray" : (isNocturnal ? "magenta" : "yellow")}
+          bold={pulseState === 0 || pulseState === 1}
+          dimColor={pulseState === 2 || pulseState === 4}
+        >
+          {isNocturnal ? '🌙  NOCTURNAL CODER' : '☀️  DAYTIME CODER'}
         </Text>
       </Box>
     </Box>
@@ -503,11 +777,28 @@ function ArchetypeSlide({ stats }: { stats: WrappedStats }) {
 function StreakSlide({ stats }: { stats: WrappedStats }) {
   const animatedStreak = useCountUp(stats.longestStreak, 1200);
 
+  // Bold ASCII art for "ACTIVITY"
+  const titleArt = [
+    ' █████╗  ██████╗████████╗██╗██╗   ██╗██╗████████╗██╗   ██╗',
+    '██╔══██╗██╔════╝╚══██╔══╝██║██║   ██║██║╚══██╔══╝╚██╗ ██╔╝',
+    '███████║██║        ██║   ██║██║   ██║██║   ██║    ╚████╔╝ ',
+    '██╔══██║██║        ██║   ██║╚██╗ ██╔╝██║   ██║     ╚██╔╝  ',
+    '██║  ██║╚██████╗   ██║   ██║ ╚████╔╝ ██║   ██║      ██║   ',
+    '╚═╝  ╚═╝ ╚═════╝   ╚═╝   ╚═╝  ╚═══╝  ╚═╝   ╚═╝      ╚═╝   '
+  ];
+
   return (
     <Box flexDirection="column" alignItems="center" justifyContent="center" flexGrow={1}>
-      {/* Title */}
-      <Box marginBottom={2}>
-        <Text color="cyan" bold>🔥 YOUR LONGEST STREAK</Text>
+      {/* ASCII Title */}
+      <Box marginBottom={1} flexDirection="column" alignItems="center">
+        {titleArt.map((line, i) => (
+          <Text key={i} color="cyan" bold>{line}</Text>
+        ))}
+      </Box>
+
+      {/* Subtitle */}
+      <Box marginBottom={1}>
+        <Text color="white" bold>YOUR LONGEST STREAK</Text>
       </Box>
 
       {/* Big number */}
@@ -518,7 +809,7 @@ function StreakSlide({ stats }: { stats: WrappedStats }) {
       </Box>
 
       {/* Stats box */}
-      <Box borderStyle="round" borderColor="green" paddingX={4} paddingY={1} marginTop={3}>
+      <Box borderStyle="round" borderColor="green" paddingX={4} paddingY={1} marginTop={1}>
         <Box flexDirection="column">
           <Box marginBottom={1}>
             <Text color="cyan">⏰ Peak Hour: </Text>
@@ -543,24 +834,42 @@ function PRsAndIssuesSlide({ stats }: { stats: WrappedStats }) {
   const animatedPRs = useCountUp(stats.totalPRs, 1000);
   const animatedIssues = useCountUp(stats.totalIssues, 1000);
 
+  // Bold ASCII art for "CONTRIBS"
+  const titleArt = [
+    ' ██████╗ ███████╗███╗   ██╗████████╗██████╗ ██╗██████╗ ███████╗',
+    '██╔════╝██╔═══██║████╗  ██║╚══██╔══╝██╔══██╗██║██╔══██╗██╔════╝',
+    '██║     ██║   ██║██╔██╗ ██║   ██║   ██████╔╝██║██████╔╝███████╗',
+    '██║     ██║   ██║██║╚██╗██║   ██║   ██╔══██╗██║██╔══██╗╚════██║',
+    '╚██████╗╚██████╔╝██║ ╚████║   ██║   ██║  ██║██║██████╔╝███████║',
+    ' ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝╚═╝╚═════╝ ╚══════╝'
+  ];
+
   return (
     <Box flexDirection="column" alignItems="center" justifyContent="center" flexGrow={1}>
+      {/* ASCII Title */}
+      <Box marginBottom={1} flexDirection="column" alignItems="center">
+        {titleArt.map((line, i) => (
+          <Text key={i} color="cyan" bold>{line}</Text>
+        ))}
+      </Box>
+
+      {/* Subtitle */}
       <Box marginBottom={1}>
-        <Text color="green" bold>PULL REQUESTS & ISSUES</Text>
+        <Text color="white" bold>PULL REQUESTS & ISSUES</Text>
       </Box>
 
       {/* Stats Boxes */}
-      <Box flexDirection="row" gap={4} marginY={2}>
+      <Box flexDirection="row" gap={4} marginY={1}>
         <Box borderStyle="round" borderColor="magenta" paddingX={3} paddingY={1}>
           <Box flexDirection="column" alignItems="center">
-            <Text bold color="magenta">{animatedPRs}</Text>
+            <Text bold color="magenta">{formatNumber(animatedPRs)}</Text>
             <Text color="gray" dimColor>PULL REQ</Text>
           </Box>
         </Box>
 
         <Box borderStyle="round" borderColor="cyan" paddingX={3} paddingY={1}>
           <Box flexDirection="column" alignItems="center">
-            <Text bold color="cyan">{animatedIssues}</Text>
+            <Text bold color="cyan">{formatNumber(animatedIssues)}</Text>
             <Text color="gray" dimColor>ISSUES</Text>
           </Box>
         </Box>
@@ -569,7 +878,7 @@ function PRsAndIssuesSlide({ stats }: { stats: WrappedStats }) {
       {/* Details */}
       <Box flexDirection="column" marginTop={1}>
         <Box marginBottom={1}>
-          <Text color="green">📊 Contributions to collaboration</Text>
+          <Text color="green">Contributions to collaboration</Text>
         </Box>
         <Box>
           <Text color="gray" dimColor>Building better code, one PR at a time</Text>
@@ -579,83 +888,85 @@ function PRsAndIssuesSlide({ stats }: { stats: WrappedStats }) {
   );
 }
 
-// NEW SLIDE: Stars & Impact
-function StarsSlide({ stats }: { stats: WrappedStats }) {
-  const animatedStars = useCountUp(stats.totalStars, 1200);
-
-  return (
-    <Box flexDirection="column" alignItems="center" justifyContent="center" flexGrow={1}>
-      <Box marginBottom={1}>
-        <Text color="green" bold>YOUR IMPACT</Text>
-      </Box>
-
-      <Box marginY={2}>
-        <Text bold color="yellow">⭐ {animatedStars} ⭐</Text>
-      </Box>
-
-      <Box marginBottom={1}>
-        <Text color="cyan" bold>TOTAL STARS</Text>
-      </Box>
-
-      <Box flexDirection="column" marginTop={2}>
-        <Box marginBottom={1}>
-          <Text color="green">🌟 Across {stats.totalRepos} repositories</Text>
-        </Box>
-        <Box>
-          <Text color="gray" dimColor>Your code inspired {animatedStars} developers!</Text>
-        </Box>
-      </Box>
-    </Box>
-  );
-}
-
 function AchievementsSlide({ stats }: { stats: WrappedStats }) {
-  const displayedAchievements = stats.achievements.slice(0, 5);
-  const visibleCount = useStaggeredReveal(displayedAchievements.length, 150);
-
-  // Helper to get rarity color and symbol
-  const getRarityDisplay = (rarity: string) => {
-    switch (rarity) {
-      case 'mythic':
-        return { color: 'magenta', symbol: '✨', label: 'MYTHIC' };
-      case 'legendary':
-        return { color: 'yellow', symbol: '🟠', label: 'LEGENDARY' };
-      case 'epic':
-        return { color: 'magenta', symbol: '🟣', label: 'EPIC' };
-      case 'rare':
-        return { color: 'blue', symbol: '🔵', label: 'RARE' };
-      case 'common':
-        return { color: 'white', symbol: '⚪', label: 'COMMON' };
-      default:
-        return { color: 'white', symbol: '⚪', label: 'COMMON' };
-    }
+  // Helper to truncate text
+  const truncateText = (text: string, maxLength: number) => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength - 3) + '...';
   };
 
+  // Helper to get icon based on programming language
+  const getLanguageIcon = (language: string | null) => {
+    if (!language) return '📁';
+
+    const lang = language.toLowerCase();
+    if (lang.includes('javascript')) return '📘';
+    if (lang.includes('typescript')) return '📘';
+    if (lang.includes('python')) return '🐍';
+    if (lang.includes('go')) return '🔧';
+    if (lang.includes('java')) return '☕';
+    if (lang.includes('rust')) return '🦀';
+    if (lang.includes('c++') || lang.includes('cpp')) return '⚙️';
+    if (lang.includes('ruby')) return '💎';
+    if (lang.includes('php')) return '🐘';
+    return '📁';
+  };
+
+  // Bold ASCII art for "PROJECTS"
+  const titleArt = [
+    '██████╗ ██████╗  ██████╗      ██╗███████╗ ██████╗████████╗███████╗',
+    '██╔══██╗██╔══██╗██╔═══██╗     ██║██╔════╝██╔════╝╚══██╔══╝██╔════╝',
+    '██████╔╝██████╔╝██║   ██║     ██║█████╗  ██║        ██║   ███████╗',
+    '██╔═══╝ ██╔══██╗██║   ██║██   ██║██╔══╝  ██║        ██║   ╚════██║',
+    '██║     ██║  ██║╚██████╔╝╚█████╔╝███████╗╚██████╗   ██║   ███████║',
+    '╚═╝     ╚═╝  ╚═╝ ╚═════╝  ╚════╝ ╚══════╝ ╚═════╝   ╚═╝   ╚══════╝'
+  ];
+
+  const topRepos = stats.topRepos.slice(0, 5);
+  const username = stats.user.login;
+
   return (
     <Box flexDirection="column" alignItems="center" justifyContent="center" flexGrow={1}>
-      <Box marginBottom={1}>
-        <Text color="yellow" bold>🏆 ACHIEVEMENTS UNLOCKED</Text>
-      </Box>
-      <Box marginBottom={1}>
-        <Text color="green" dimColor>{stats.achievements.length} total badges earned</Text>
+      {/* ASCII Title */}
+      <Box marginBottom={1} flexDirection="column" alignItems="center">
+        {titleArt.map((line, i) => (
+          <Text key={i} color="cyan" bold>{line}</Text>
+        ))}
       </Box>
 
-      <Box flexDirection="column" marginTop={1} width={85}>
-        {displayedAchievements.slice(0, visibleCount).map((achievement) => {
-          const rarityInfo = getRarityDisplay(achievement.rarity);
-          return (
-            <Box key={achievement.id} marginY={1} borderStyle="round" borderColor="green" paddingX={2} flexDirection="row">
-              <Text>{achievement.emoji}  </Text>
-              <Box flexDirection="column" flexGrow={1}>
-                <Box flexDirection="row" justifyContent="space-between">
-                  <Text color="yellow" bold>{achievement.name}</Text>
-                  <Text color={rarityInfo.color}>[{rarityInfo.symbol} {rarityInfo.label}]</Text>
+      {/* Header Bar */}
+      <Box borderStyle="single" borderColor="green" paddingX={2} width={60}>
+        <Box flexDirection="row" justifyContent="space-between">
+          <Text color="green" bold>/{username.toUpperCase()}/PROJECTS</Text>
+          <Text color="green" bold>[X]</Text>
+        </Box>
+      </Box>
+
+      {/* Repository List - Table Style */}
+      <Box borderStyle="single" borderColor="green" paddingX={2} width={60}>
+        <Box flexDirection="column">
+          {topRepos.map((repo, index) => (
+            <Box key={repo.name} flexDirection="column">
+              <Box flexDirection="row" justifyContent="space-between" alignItems="center" paddingY={0}>
+                {/* Left: Icon + Name */}
+                <Box flexDirection="row" alignItems="center" gap={1}>
+                  <Text>{getLanguageIcon(repo.language)}</Text>
+                  <Text color="green" bold>{truncateText(repo.name.toUpperCase(), 30)}</Text>
                 </Box>
-                <Text color="gray" dimColor>{achievement.description}</Text>
+
+                {/* Right: Rank Badge */}
+                <Box borderStyle="single" borderColor="yellow" paddingX={1}>
+                  <Text color="yellow" bold>#{index + 1}</Text>
+                </Box>
               </Box>
+
+              {/* Horizontal separator */}
+              {index < topRepos.length - 1 && (
+                <Text color="gray" dimColor>{'─'.repeat(52)}</Text>
+              )}
             </Box>
-          );
-        })}
+          ))}
+        </Box>
       </Box>
     </Box>
   );
@@ -743,19 +1054,38 @@ function ComparisonSlide({ comparisonStats }: { comparisonStats: ComparisonStats
 }
 
 function ExportSlide({ stats }: { stats: WrappedStats }) {
+  // Bold ASCII art for "EXPORT"
+  const titleArt = [
+    '███████╗██╗  ██╗██████╗  ██████╗ ██████╗ ████████╗',
+    '██╔════╝╚██╗██╔╝██╔══██╗██╔═══██╗██╔══██╗╚══██╔══╝',
+    '█████╗   ╚███╔╝ ██████╔╝██║   ██║██████╔╝   ██║   ',
+    '██╔══╝   ██╔██╗ ██╔═══╝ ██║   ██║██╔══██╗   ██║   ',
+    '███████╗██╔╝ ██╗██║     ╚██████╔╝██║  ██║   ██║   ',
+    '╚══════╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚═╝  ╚═╝   ╚═╝   '
+  ];
+
   return (
     <Box flexDirection="column" alignItems="center" justifyContent="center" flexGrow={1}>
-      <Box marginBottom={1}>
-        <Text color="green" bold>READY TO SHARE?</Text>
+      {/* ASCII Title */}
+      <Box marginBottom={1} flexDirection="column" alignItems="center">
+        {titleArt.map((line, i) => (
+          <Text key={i} color="cyan" bold>{line}</Text>
+        ))}
       </Box>
+
+      {/* Subtitle */}
+      <Box marginBottom={1}>
+        <Text color="white" bold>READY TO EXPORT?</Text>
+      </Box>
+
       <Box marginBottom={1}>
         <Text color="white">
-          {stats.totalCommits} commits • {stats.totalPRs} PRs • {stats.totalRepos} repos
+          {formatNumber(stats.totalCommits)} commits • {formatNumber(stats.totalPRs)} PRs • {formatNumber(stats.totalRepos)} repos
         </Text>
       </Box>
-      <Box marginBottom={2}>
+      <Box marginBottom={1}>
         <Text color="green" dimColor>
-          {stats.totalIssues} issues • {(stats.totalLinesChanged / 1000).toFixed(0)}K lines changed
+          {formatNumber(stats.totalIssues)} issues • {(stats.totalLinesChanged / 1000).toFixed(0)}K lines changed
         </Text>
       </Box>
 
@@ -768,17 +1098,6 @@ function ExportSlide({ stats }: { stats: WrappedStats }) {
         <Box marginBottom={1}>
           <Text color="cyan" bold>[E] </Text>
           <Text color="white">Export as SVG (Vector)</Text>
-          <Text color="gray" dimColor> → Convert to PNG at cloudconvert.com</Text>
-        </Box>
-
-        <Box marginBottom={1}>
-          <Text color="green" bold>[T] </Text>
-          <Text color="white">Share on Twitter</Text>
-        </Box>
-
-        <Box marginBottom={1}>
-          <Text color="green" bold>[L] </Text>
-          <Text color="white">Share on LinkedIn</Text>
         </Box>
 
         <Box>
@@ -791,82 +1110,170 @@ function ExportSlide({ stats }: { stats: WrappedStats }) {
 }
 
 function FarewellSlide({ stats, action }: { stats: WrappedStats; action?: string }) {
-  const getActionMessage = () => {
-    switch (action) {
-      case 'export':
-        return '✅ SVG exported successfully!';
-      case 'twitter':
-        return '🐦 Twitter share link saved!';
-      case 'linkedin':
-        return '💼 LinkedIn share link saved!';
-      default:
-        return '✨ All done!';
-    }
-  };
+  const [showMessage, setShowMessage] = useState(false);
+  const [rainColumns, setRainColumns] = useState<Array<{ x: number; y: number; speed: number; numbers: string[] }>>([]);
 
-  const getActionDetails = () => {
-    switch (action) {
-      case 'export':
-        return 'Your GitHub Wrapped card has been saved to gh-wrapped.svg';
-      case 'twitter':
-        return 'Share links saved to share-links.txt';
-      case 'linkedin':
-        return 'Share links saved to share-links.txt';
-      default:
-        return 'Thanks for checking out your GitHub stats!';
+  // Initialize rain columns
+  useEffect(() => {
+    const columns = [];
+    const numColumns = 100; // Number of rain columns (increased for better coverage)
+    for (let i = 0; i < numColumns; i++) {
+      columns.push({
+        x: i,
+        y: Math.floor(Math.random() * -30), // Start above screen
+        speed: Math.random() * 2.4 + 1.2, // Random speed (3x faster)
+        numbers: Array(15).fill(0).map(() => Math.floor(Math.random() * 10).toString())
+      });
     }
-  };
+    setRainColumns(columns);
 
+    // Show message after 5 seconds
+    const timer = setTimeout(() => {
+      setShowMessage(true);
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Animate rain
+  useEffect(() => {
+    if (showMessage) return;
+
+    const interval = setInterval(() => {
+      setRainColumns(prev => prev.map(col => ({
+        ...col,
+        y: col.y + col.speed,
+        // Reset if too far down
+        ...(col.y > 35 ? {
+          y: Math.floor(Math.random() * -15),
+          numbers: Array(15).fill(0).map(() => Math.floor(Math.random() * 10).toString())
+        } : {})
+      })));
+    }, 16);
+
+    return () => clearInterval(interval);
+  }, [showMessage]);
+
+  // Show final message
+  if (showMessage) {
+    // ASCII art for "2025"
+    const year2025Art = [
+      '██████╗  ██████╗ ██████╗ ███████╗',
+      '╚════██╗██╔═████╗╚════██╗██╔════╝',
+      ' █████╔╝██║██╔██║ █████╔╝███████╗',
+      '██╔═══╝ ████╔╝██║██╔═══╝ ╚════██║',
+      '███████╗╚██████╔╝███████╗███████║',
+      '╚══════╝ ╚═════╝ ╚══════╝╚══════╝'
+    ];
+
+    // ASCII art for "WRAPPED"
+    const wrappedArt = [
+      '██╗    ██╗██████╗  █████╗ ██████╗ ██████╗ ███████╗██████╗ ',
+      '██║    ██║██╔══██╗██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗',
+      '██║ █╗ ██║██████╔╝███████║██████╔╝██████╔╝█████╗  ██║  ██║',
+      '██║███╗██║██╔══██╗██╔══██║██╔═══╝ ██╔═══╝ ██╔══╝  ██║  ██║',
+      '╚███╔███╔╝██║  ██║██║  ██║██║     ██║     ███████╗██████╔╝',
+      ' ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝     ╚══════╝╚═════╝ '
+    ];
+
+    return (
+      <Box flexDirection="column" alignItems="center" justifyContent="center" flexGrow={1}>
+        {/* 2025 ASCII Art */}
+        <Box marginBottom={1} flexDirection="column" alignItems="center">
+          {year2025Art.map((line, i) => (
+            <Text key={i} color="cyan" bold>{line}</Text>
+          ))}
+        </Box>
+
+        {/* WRAPPED ASCII Art */}
+        <Box marginBottom={1} flexDirection="column" alignItems="center">
+          {wrappedArt.map((line, i) => (
+            <Text key={i} color="magenta" bold>{line}</Text>
+          ))}
+        </Box>
+
+        {/* Divider */}
+        <Box marginBottom={1}>
+          <Text color="gray">─────────────────────────────────────────────────────</Text>
+        </Box>
+
+        {/* See you in 2026 */}
+        <Box marginBottom={1} justifyContent="center">
+          <Text color="green" bold>SEE YOU IN 2026</Text>
+        </Box>
+
+        {/* Exit button */}
+        <Box marginBottom={2} justifyContent="center">
+          <Text color="green">[   Press ENTER to exit   ]</Text>
+        </Box>
+
+        {/* Footer credit */}
+        <Box marginTop={2} justifyContent="center">
+          <Text color="gray" dimColor>Crafted by d3varaja</Text>
+        </Box>
+      </Box>
+    );
+  }
+
+  // Number rain animation
   return (
-    <Box flexDirection="column" alignItems="center" justifyContent="center" flexGrow={1}>
-      {/* Action confirmation */}
-      <Box marginBottom={2}>
-        <Text color="green" bold>{getActionMessage()}</Text>
-      </Box>
+    <Box flexDirection="column" width="100%" height={35}>
+      {Array(35).fill(0).map((_, row) => (
+        <Box key={row} flexDirection="row">
+          {rainColumns.map((col, colIndex) => {
+            const relativePos = row - Math.floor(col.y);
+            if (relativePos >= 0 && relativePos < col.numbers.length) {
+              // Purple gradient based on position in trail (brighter at top, dimmer below)
+              let color = 'magenta';
+              let dimColor = false;
 
-      {/* Details */}
-      <Box marginBottom={3} width={70}>
-        <Text color="cyan" dimColor>{getActionDetails()}</Text>
-      </Box>
+              if (relativePos === 0) {
+                // Brightest at the head
+                color = 'magenta';
+                dimColor = false;
+              } else if (relativePos <= 3) {
+                // Medium bright
+                color = 'magenta';
+                dimColor = false;
+              } else if (relativePos <= 7) {
+                // Slightly dimmed
+                color = 'magenta';
+                dimColor = true;
+              } else {
+                // Very dim at tail
+                color = 'blue';
+                dimColor = true;
+              }
 
-      {/* Divider */}
-      <Box marginBottom={2}>
-        <Text color="gray">━━━━━━━━━━━━━━━━━━━━━━━━━━</Text>
-      </Box>
-
-      {/* Main message */}
-      <Box marginBottom={2}>
-        <Text color="green" bold>👋 SEE YOU NEXT YEAR!</Text>
-      </Box>
-
-      {/* Year callout */}
-      <Box marginBottom={2}>
-        <Text color="white">Thanks for an amazing {stats.year}!</Text>
-      </Box>
-
-      {/* Motivational message */}
-      <Box marginBottom={3} width={70}>
-        <Text color="gray" dimColor>
-          Keep coding, keep building, keep making an impact.
-        </Text>
-      </Box>
-
-      {/* Exit instruction */}
-      <Box borderStyle="round" borderColor="green" paddingX={3} paddingY={1}>
-        <Text color="green">Press </Text>
-        <Text color="green" bold>ENTER</Text>
-        <Text color="green"> to exit</Text>
-      </Box>
+              return (
+                <Text
+                  key={colIndex}
+                  color={color}
+                  dimColor={dimColor}
+                >
+                  {col.numbers[relativePos]}
+                </Text>
+              );
+            }
+            return <Text key={colIndex}> </Text>;
+          })}
+        </Box>
+      ))}
     </Box>
   );
 }
 
 // Main Slideshow Component
-export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats }: StatsDisplayProps) {
+export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats, boxWidth: propBoxWidth, verticalPadding: propVerticalPadding }: StatsDisplayProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [actionTaken, setActionTaken] = useState<string | null>(null);
   const [showFarewell, setShowFarewell] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Use provided values or defaults
+  const boxWidth = propBoxWidth || 100;
+  const verticalPadding = propVerticalPadding || 1;
+  const boxHeight = Math.floor(boxWidth * 0.5); // Same height calculation as landing pages
 
   // Enable stdin raw mode for arrow keys on Windows
   useEffect(() => {
@@ -887,7 +1294,6 @@ export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats
     <ArchetypeSlide key="arch" stats={stats} />,
     <StreakSlide key="streak" stats={stats} />,
     <PRsAndIssuesSlide key="prs" stats={stats} />,
-    <StarsSlide key="stars" stats={stats} />,
     <AchievementsSlide key="achieve" stats={stats} />,
   ];
 
@@ -928,28 +1334,6 @@ export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats
         }).catch(() => {
           setIsProcessing(false);
         });
-      } else if (input === 't' || input === 'T') {
-        if (onShare) {
-          setIsProcessing(true);
-          onShare('twitter').then(() => {
-            setActionTaken('twitter');
-            setShowFarewell(true);
-            setIsProcessing(false);
-          }).catch(() => {
-            setIsProcessing(false);
-          });
-        }
-      } else if (input === 'l' || input === 'L') {
-        if (onShare) {
-          setIsProcessing(true);
-          onShare('linkedin').then(() => {
-            setActionTaken('linkedin');
-            setShowFarewell(true);
-            setIsProcessing(false);
-          }).catch(() => {
-            setIsProcessing(false);
-          });
-        }
       } else if (input === 'q' || input === 'Q') {
         onExit();
       } else if (key.leftArrow) {
@@ -969,71 +1353,311 @@ export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats
   });
 
   return (
-    <Box flexDirection="column" width="100%" height="100%" justifyContent="center" alignItems="center">
-      {/* Card Container with Border - 16:9 ratio, centered */}
-      <Box flexDirection="column" borderStyle="double" borderColor="green" width={100} height={30}>
-        {/* Header with ESC in top left, title centered */}
-        <Box flexDirection="row" justifyContent="space-between" paddingY={1} paddingX={2} borderBottom borderColor="green">
-          <Text color="red" dimColor>{showFarewell ? '' : '[ESC] Exit'}</Text>
-          <Box flexGrow={1} justifyContent="center">
-            <Text bold color="green">GITHUB WRAPPED {stats.year}</Text>
-          </Box>
-          {showFarewell ? (
-            <Text color="green" dimColor>Press ENTER</Text>
-          ) : currentSlide === exportSlideIndex ? (
-            <Text color="cyan" dimColor>Press E/T/L/Q</Text>
+    <Box flexDirection="column" alignItems="center" width="100%">
+      {/* Main bordered box - Same structure as landing pages */}
+      <Box
+        flexDirection="column"
+        borderStyle="double"
+        borderColor="green"
+        paddingX={4}
+        paddingY={1}
+        width={boxWidth}
+        height={boxHeight}
+        alignItems="center"
+        marginTop={verticalPadding}
+      >
+        {/* Slide content - Main content area with flexGrow */}
+        <Box flexGrow={1} justifyContent="center" alignItems="center" width="100%">
+          {isProcessing ? (
+            <Box flexDirection="column" alignItems="center" justifyContent="center">
+              <Text color="green">Processing...</Text>
+            </Box>
+          ) : showFarewell ? (
+            <FarewellSlide stats={stats} action={actionTaken || undefined} />
           ) : (
-            <Box width={19}></Box>
+            slides[currentSlide]
           )}
         </Box>
 
-        {/* Current Slide with Side Arrows - Fixed Height Container */}
-        <Box flexDirection="row" height={24} alignItems="center">
-          {/* Left Arrow */}
-          <Box width={3} justifyContent="center" alignItems="center">
-            {!showFarewell && currentSlide > 0 && <Text color="cyan" bold>←</Text>}
-          </Box>
-
-          {/* Content */}
-          <Box flexDirection="column" flexGrow={1} paddingY={1}>
-            {isProcessing ? (
-              <Box flexDirection="column" alignItems="center" justifyContent="center" flexGrow={1}>
-                <Text color="green">Processing...</Text>
-              </Box>
-            ) : showFarewell ? (
-              <FarewellSlide stats={stats} action={actionTaken || undefined} />
-            ) : (
-              slides[currentSlide]
-            )}
-          </Box>
-
-          {/* Right Arrow */}
-          <Box width={3} justifyContent="center" alignItems="center">
-            {!showFarewell && currentSlide < totalSlides - 1 && <Text color="cyan" bold>→</Text>}
-          </Box>
-        </Box>
-
-        {/* Navigation Footer - Just Progress Dots */}
-        <Box flexDirection="column" borderTop borderColor="green">
-          {/* Progress Dots */}
-          <Box justifyContent="center" paddingY={1}>
-            {!showFarewell && Array.from({ length: totalSlides }).map((_, i) => (
+        {/* Progress dots inside the box */}
+        {!showFarewell && (
+          <Box justifyContent="center" marginBottom={1}>
+            {Array.from({ length: totalSlides }).map((_, i) => (
               <Text key={i} color={i === currentSlide ? 'green' : 'gray'}>
                 {i === currentSlide ? '■' : '□'}{' '}
               </Text>
             ))}
-            {showFarewell && (
-              <Text color="green">✓ Complete</Text>
+          </Box>
+        )}
+
+        {/* Navigation instructions inside the box */}
+        {!showFarewell && (
+          <Box justifyContent="center">
+            {currentSlide === exportSlideIndex ? (
+              <Text color="cyan" dimColor>E: Export • T: Twitter • L: LinkedIn • Q: Skip • ESC: Exit</Text>
+            ) : (
+              <Text color="green" dimColor>← → to navigate • ESC to exit</Text>
             )}
           </Box>
-        </Box>
+        )}
       </Box>
     </Box>
   );
+}
+
+// ============================================
+// ROOT APP COMPONENT - State Machine
+// ============================================
+
+interface GitHubWrappedAppProps {
+  detectedUsername: string | null;
+}
+
+export function GitHubWrappedApp({ detectedUsername }: GitHubWrappedAppProps) {
+  const [appState, setAppState] = useState<AppState>({
+    phase: 'username_input',
+    detectedUsername
+  });
+
+  // Get terminal dimensions
+  const { stdout } = useStdout();
+  const termWidth = stdout?.columns || 80;
+  const termHeight = stdout?.rows || 24;
+
+  // Calculate box dimensions (same as UsernameInput)
+  const usableWidth = Math.floor(termWidth * 0.98);
+  const usableHeight = Math.floor(termHeight * 0.98);
+
+  let boxWidth = usableWidth;
+  let boxHeight = Math.floor(boxWidth * 0.5);
+
+  if (boxHeight > usableHeight) {
+    boxHeight = usableHeight;
+    boxWidth = Math.floor(boxHeight * 2);
+  }
+
+  boxWidth = Math.max(boxWidth, 80);
+  const verticalPadding = Math.max(1, Math.floor((termHeight - boxHeight - 4) / 2));
+
+  // Handle username submission
+  const handleUsernameSubmit = (username: string) => {
+    setAppState({
+      phase: 'fetching_data',
+      username,
+      token: process.env.GITHUB_TOKEN,
+      message: 'Initializing...'
+    });
+  };
+
+  // Handle token submission
+  const handleTokenSubmit = (token: string) => {
+    if (appState.phase === 'token_request') {
+      setAppState({
+        phase: 'fetching_data',
+        username: appState.username,
+        token,
+        message: 'Validating token and fetching data...'
+      });
+    }
+  };
+
+  // Data fetching effect
+  useEffect(() => {
+    if (appState.phase !== 'fetching_data') return;
+
+    let cancelled = false;
+
+    const fetchData = async () => {
+      try {
+        const client = new GitHubGraphQLClient(appState.username, appState.token);
+        const analyzer = new StatsAnalyzer();
+
+        const selectedYear = new Date().getFullYear();
+        const startDate = new Date(`${selectedYear}-01-01`);
+        const endDate = new Date();
+        const dateRangeStr = `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
+        if (!cancelled) {
+          setAppState(prev => ({
+            ...prev,
+            phase: 'fetching_data',
+            message: `Fetching GitHub data for ${selectedYear}...`
+          }));
+        }
+
+        const [user, repos, languageStats, commits, totalPRs, totalIssues, contributions, realLinesChanged, accurateCommitCount] = await Promise.all([
+          client.getUser(),
+          client.getRepositories(),
+          client.getLanguages(),
+          client.getCommitsForYear(selectedYear),
+          client.getPullRequests(selectedYear),
+          client.getIssues(selectedYear),
+          client.getContributionCalendar(selectedYear),
+          client.getTotalLinesChanged(selectedYear),
+          client.getTotalCommitCount(selectedYear)
+        ]);
+
+        if (!cancelled) {
+          setAppState(prev => ({
+            ...prev,
+            phase: 'fetching_data',
+            message: 'Generating your wrapped with REAL data...'
+          }));
+        }
+
+        const stats = await analyzer.generateWrappedStats(
+          user,
+          commits,
+          repos,
+          languageStats,
+          contributions,
+          totalPRs,
+          totalIssues,
+          realLinesChanged,
+          selectedYear,
+          dateRangeStr,
+          accurateCommitCount
+        );
+
+        if (!cancelled) {
+          setAppState({
+            phase: 'stats_display',
+            stats,
+            comparisonStats: undefined
+          });
+        }
+      } catch (err: any) {
+        if (cancelled) return;
+
+        // Handle errors
+        if (err.message.includes('rate limit') || err.message.includes('403')) {
+          setAppState({
+            phase: 'token_request',
+            username: appState.username,
+            error: undefined
+          });
+        } else if (err.message.includes('Bad credentials')) {
+          setAppState({
+            phase: 'token_request',
+            username: appState.username,
+            error: 'Invalid token. Please try again.'
+          });
+        } else {
+          setAppState({
+            phase: 'error',
+            error: err.message
+          });
+        }
+      }
+    };
+
+    fetchData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [appState.phase, appState.phase === 'fetching_data' ? appState.username : null, appState.phase === 'fetching_data' ? appState.token : null]);
+
+  // Render based on current phase
+  if (appState.phase === 'username_input') {
+    return (
+      <UsernameInput
+        onSubmit={handleUsernameSubmit}
+        detectedUsername={appState.detectedUsername}
+      />
+    );
+  }
+
+  if (appState.phase === 'fetching_data') {
+    return (
+      <Box flexDirection="column" alignItems="center" width="100%">
+        <Box
+          flexDirection="column"
+          borderStyle="double"
+          borderColor="green"
+          paddingX={4}
+          paddingY={1}
+          width={boxWidth}
+          height={boxHeight}
+          alignItems="center"
+          marginTop={verticalPadding}
+        >
+          <LoadingScreen message={appState.message} />
+        </Box>
+      </Box>
+    );
+  }
+
+  if (appState.phase === 'token_request') {
+    return (
+      <Box flexDirection="column" alignItems="center" width="100%">
+        <Box
+          flexDirection="column"
+          borderStyle="double"
+          borderColor="green"
+          paddingX={4}
+          paddingY={1}
+          width={boxWidth}
+          height={boxHeight}
+          alignItems="center"
+          marginTop={verticalPadding}
+        >
+          <TokenInput
+            onSubmit={handleTokenSubmit}
+            onSkip={() => process.exit(0)}
+            error={appState.error}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  if (appState.phase === 'stats_display') {
+    return (
+      <StatsDisplay
+        stats={appState.stats}
+        comparisonStats={appState.comparisonStats}
+        onExit={() => process.exit(0)}
+        onExport={async () => {}}
+        onShare={async () => {}}
+        boxWidth={boxWidth}
+        verticalPadding={verticalPadding}
+      />
+    );
+  }
+
+  if (appState.phase === 'error') {
+    return (
+      <Box flexDirection="column" alignItems="center" width="100%">
+        <Box
+          flexDirection="column"
+          borderStyle="double"
+          borderColor="red"
+          paddingX={4}
+          paddingY={1}
+          width={boxWidth}
+          height={boxHeight}
+          alignItems="center"
+          marginTop={verticalPadding}
+        >
+          <Text color="red" bold>✗ Error</Text>
+          <Text color="red">{appState.error}</Text>
+          <Text color="gray" dimColor>Press Ctrl+C to exit</Text>
+        </Box>
+      </Box>
+    );
+  }
+
+  return null;
 }
 
 function formatHour(hour: number): string {
   const period = hour >= 12 ? 'PM' : 'AM';
   const displayHour = hour % 12 || 12;
   return `${displayHour}:00 ${period}`;
+}
+
+// Helper function to format numbers with commas
+function formatNumber(num: number): string {
+  return num.toLocaleString('en-US');
 }

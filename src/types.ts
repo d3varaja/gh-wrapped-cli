@@ -112,3 +112,10 @@ export interface ComparisonStats {
     streak: number;
   };
 }
+
+export type AppState =
+  | { phase: 'username_input'; detectedUsername: string | null }
+  | { phase: 'fetching_data'; username: string; token?: string; message: string }
+  | { phase: 'token_request'; username: string; error?: string }
+  | { phase: 'stats_display'; stats: WrappedStats; comparisonStats?: ComparisonStats }
+  | { phase: 'error'; error: string };
