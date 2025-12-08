@@ -5,6 +5,7 @@ import React from 'react';
 import { render } from 'ink';
 import { execSync } from 'child_process';
 import { GitHubWrappedApp } from './ui.js';
+import { getBrowserInstaller } from './utils/browser-installer.js';
 
 // Helper: Auto-detect GitHub username from git config
 function detectGitHubUsername(): string | null {
@@ -26,6 +27,11 @@ function detectGitHubUsername(): string | null {
 
 // Main function
 async function main() {
+  // Start background Chromium installation (non-blocking)
+  // This runs while user is viewing their stats
+  const browserInstaller = getBrowserInstaller();
+  browserInstaller.startBackgroundInstall();
+
   const detected = detectGitHubUsername();
 
   // Clear terminal and reset cursor

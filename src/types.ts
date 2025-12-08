@@ -21,6 +21,7 @@ export interface Commit {
     };
     message: string;
   };
+  repository?: string; // Repository name (added by GraphQL client)
 }
 
 export interface Repository {
