@@ -3,7 +3,7 @@ import { Box, Text, Newline, useInput, useApp, useStdout } from 'ink';
 import Spinner from 'ink-spinner';
 import TextInput from 'ink-text-input';
 import SelectInput from 'ink-select-input';
-import open from 'open';
+import { openFile } from './utils/file-opener.js';
 import type { WrappedStats, ComparisonStats, AppState } from './types.js';
 import { GitHubGraphQLClient } from './github-graphql.js';
 import { StatsAnalyzer } from './analytics.js';
@@ -205,7 +205,7 @@ export function UsernameInput({ onSubmit, error, detectedUsername }: Props) {
       if (selected.type === 'menu' && 'value' in selected) {
         handleMenuSelect({ value: selected.value });
       } else if (selected.type === 'nav' && 'url' in selected) {
-        open(selected.url).catch(() => {
+        openFile(selected.url).catch(() => {
           // Silently fail if can't open
         });
       }
@@ -1299,11 +1299,23 @@ export function StatsDisplay({ stats, onExport, onExit, onShare, comparisonStats
       if (key.return) {
         // Auto-open exported image if it exists
         if (exportPath) {
-          open(exportPath).catch(() => {
-            // Silently fail if can't open
-          });
+          console.log('[DEBUG] Opening image:', exportPath);
+          // Open the image before exiting
+          openFile(exportPath)
+            .then(() => console.log('[DEBUG] Image opened successfully'))
+            .catch((err) => {
+              // Log error but don't block exit
+              console.error('[DEBUG] Failed to open image:', err);
+            });
+          // Small delay to ensure file opener starts before exit
+          setTimeout(() => {
+            console.log('[DEBUG] Exiting app...');
+            onExit();
+          }, 500);
+        } else {
+          console.log('[DEBUG] No exportPath, exiting immediately');
+          onExit();
         }
-        onExit();
       }
       return;
     }
