@@ -9,7 +9,7 @@
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-green)](https://nodejs.org/)
 [![npm](https://img.shields.io/npm/v/gh-wrapped-2025)](https://www.npmjs.com/package/gh-wrapped-2025)
 
-*Like Spotify Wrapped, but for developers*
+
 
 [Quick Start](#quick-start) • [Features](#features) • [Demo](#demo) • [Token Setup](#github-token-setup) • [Contributing](#contributing)
 
