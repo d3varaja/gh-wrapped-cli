@@ -199,7 +199,7 @@ export class GitHubGraphQLClient {
             }
           }
 
-          repositories_data: repositories(first: 100, orderBy: {field: STARGAZERS, direction: DESC}, privacy: PUBLIC) {
+          repositories_data: repositories(first: 10, orderBy: {field: STARGAZERS, direction: DESC}, privacy: PUBLIC) {
             totalCount
             nodes {
               name
@@ -260,31 +260,35 @@ Get your token now: https://github.com/settings/tokens/new?description=GitHub%20
       this.statsCache.set(year, normalizedResult);
 
       return normalizedResult;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Clear cache on error
       this.statsCache.delete(year);
 
+      // Type-safe error handling
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStatus = (error as any)?.status; // GraphQL errors may have status
+
       // Handle specific errors
-      if (error.message?.includes('AUTHENTICATION REQUIRED')) {
-        throw error;
+      if (errorMessage.includes('AUTHENTICATION REQUIRED')) {
+        throw error instanceof Error ? error : new Error(errorMessage);
       }
 
-      if (error.message?.includes('NOT_FOUND') || error.message?.includes('Could not resolve to a User')) {
+      if (errorMessage.includes('NOT_FOUND') || errorMessage.includes('Could not resolve to a User')) {
         throw new Error(`GitHub user "${this.username}" not found. Please check the username and try again.`);
       }
 
-      if (error.status === 401 || error.message?.includes('Bad credentials')) {
+      if (errorStatus === 401 || errorMessage.includes('Bad credentials')) {
         throw new Error(`Invalid GitHub token. Please check your token and try again.
 
 Get a new token at: https://github.com/settings/tokens
 Required scope: read:user`);
       }
 
-      if (error.status === 403 || error.message?.includes('rate limit')) {
+      if (errorStatus === 403 || errorMessage.includes('rate limit')) {
         throw new Error('GitHub API rate limit exceeded. Please use a GitHub token for higher limits.');
       }
 
-      throw new Error(`Failed to fetch data: ${error.message}`);
+      throw new Error(`Failed to fetch data: ${errorMessage}`);
     }
   }
 

@@ -358,24 +358,25 @@ export class StatsAnalyzer {
     return dayNames[dayCounts.indexOf(maxCount)];
   }
 
+  /**
+   * Find the repository with the most commits
+   * @param commits - Array of commits (should include repository field from GraphQL)
+   * @param repos - Array of repositories (fallback if no commits found)
+   * @returns Name of the most active repository
+   */
   findMostActiveRepo(commits: Commit[], repos: Repository[]): string {
     if (repos.length === 0) return 'N/A';
+    if (commits.length === 0) return repos[0]?.name || 'N/A';
 
-    // Count commits by repo (using first repo as fallback)
+    // Count commits per repository
     const repoCommitCounts = new Map<string, number>();
 
     for (const commit of commits) {
-      const message = commit.commit.message;
-      for (const repo of repos) {
-        const repoName = repo.name;
-        if (!repoCommitCounts.has(repoName)) {
-          repoCommitCounts.set(repoName, 0);
-        }
-        repoCommitCounts.set(repoName, repoCommitCounts.get(repoName)! + 1);
-      }
+      const repoName = commit.repository || 'unknown';
+      repoCommitCounts.set(repoName, (repoCommitCounts.get(repoName) || 0) + 1);
     }
 
-    // Find repo with most commits
+    // Find repository with the highest commit count
     let maxCommits = 0;
     let mostActive = repos[0].name;
 

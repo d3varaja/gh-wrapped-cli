@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Box, Text, Newline, useInput, useApp, useStdout } from 'ink';
 import Spinner from 'ink-spinner';
 import TextInput from 'ink-text-input';
 import SelectInput from 'ink-select-input';
-import chalk from 'chalk';
 import open from 'open';
 import type { WrappedStats, ComparisonStats, AppState } from './types.js';
-import { GitHubGraphQLClient } from './github-graphql-fixed.js';
+import { GitHubGraphQLClient } from './github-graphql.js';
 import { StatsAnalyzer } from './analytics.js';
 
 // Matrix green color
@@ -521,36 +520,7 @@ interface StatsDisplayProps {
   verticalPadding?: number;
 }
 
-function generateContributionHeatmap(contributions: any[]): string[] {
-  const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-  const heatmap: string[] = [];
-
-  // Group by month
-  const monthlyData: { [key: string]: number[] } = {};
-
-  for (const contrib of contributions) {
-    const date = new Date(contrib.date);
-    const month = months[date.getMonth()];
-    if (!monthlyData[month]) {
-      monthlyData[month] = [];
-    }
-    monthlyData[month].push(contrib.count);
-  }
-
-  // Generate visual for first 6 months
-  for (let i = 0; i < 6; i++) {
-    const month = months[i];
-    const data = monthlyData[month] || [];
-    const visual = data.slice(0, 12).map(count => {
-      if (count === 0) return '░';
-      if (count <= 2) return '▓';
-      return '█';
-    }).join('');
-    heatmap.push(`${month} ${visual.padEnd(12, '░')}`);
-  }
-
-  return heatmap;
-}
+// Removed unused generateContributionHeatmap function (dead code)
 
 // Individual Slide Components
 function ContributionsSlide({ stats }: { stats: WrappedStats }) {
@@ -1632,17 +1602,20 @@ export function GitHubWrappedApp({ detectedUsername }: GitHubWrappedAppProps) {
             comparisonStats: undefined
           });
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (cancelled) return;
 
+        // Type-safe error handling
+        const errorMessage = err instanceof Error ? err.message : String(err);
+
         // Handle errors
-        if (err.message.includes('rate limit') || err.message.includes('403')) {
+        if (errorMessage.includes('rate limit') || errorMessage.includes('403')) {
           setAppState({
             phase: 'token_request',
             username: appState.username,
             error: undefined
           });
-        } else if (err.message.includes('Bad credentials')) {
+        } else if (errorMessage.includes('Bad credentials')) {
           setAppState({
             phase: 'token_request',
             username: appState.username,
@@ -1651,7 +1624,7 @@ export function GitHubWrappedApp({ detectedUsername }: GitHubWrappedAppProps) {
         } else {
           setAppState({
             phase: 'error',
-            error: err.message
+            error: errorMessage
           });
         }
       }

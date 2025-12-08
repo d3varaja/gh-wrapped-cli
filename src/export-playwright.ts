@@ -1,11 +1,12 @@
 import { chromium, Browser } from 'playwright';
-import { readFileSync, writeFileSync } from 'fs';
+import { promises as fs, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import type { WrappedStats } from './types.js';
 import { calculateScore, determineTier, getTierName, type Tier } from './tier-calculator.js';
 import { fetchAvatarAsBase64 } from './utils/avatar-fetcher.js';
 import { injectDataIntoTemplate } from './utils/html-injector.js';
+import { getBrowserInstaller } from './utils/browser-installer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -27,6 +28,19 @@ export class PlaywrightExporter {
    */
   async exportPNG(onProgress?: (status: string) => void): Promise<string> {
     try {
+      // Check browser installation status
+      const browserInstaller = getBrowserInstaller();
+
+      if (browserInstaller.isInstalling()) {
+        onProgress?.('Finalizing Chromium setup (one-time)...');
+        await browserInstaller.ensureReady();
+        onProgress?.('Setup complete!');
+      } else if (!browserInstaller.isReady()) {
+        // If background install hasn't started or failed, try to ensure it's ready
+        onProgress?.('Checking Chromium installation...');
+        await browserInstaller.ensureReady();
+      }
+
       onProgress?.('Loading template and fetching avatar...');
       const [htmlTemplate, avatarBase64] = await Promise.all([
         Promise.resolve(readFileSync(this.getTemplatePath(this.tier), 'utf-8')),
@@ -52,7 +66,7 @@ export class PlaywrightExporter {
       const screenshotBuffer = await this.renderHTMLToPNG(htmlContent, onProgress);
 
       onProgress?.('Saving file...');
-      const outputPath = this.saveFile(screenshotBuffer);
+      const outputPath = await this.saveFile(screenshotBuffer);
 
       await this.closeBrowser();
 
@@ -163,13 +177,13 @@ export class PlaywrightExporter {
   }
 
   /**
-   * Save PNG buffer to file
+   * Save PNG buffer to file (async)
    */
-  private saveFile(buffer: Buffer): string {
+  private async saveFile(buffer: Buffer): Promise<string> {
     const filename = `github-wrapped-${this.stats.year}-${this.stats.user.login}-${this.tier}.png`;
     const outputPath = join(process.cwd(), filename);
 
-    writeFileSync(outputPath, buffer);
+    await fs.writeFile(outputPath, buffer);
 
     return outputPath;
   }
