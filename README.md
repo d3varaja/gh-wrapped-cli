@@ -19,9 +19,13 @@
 
 ## Demo
 
-https://github.com/d3varaja/gh-wrapped-cli/raw/main/.github/assets/demo.mov
+<div align="center">
 
-> Watch the full interactive experience - from stats loading to image export
+![GitHub Wrapped Demo](.github/assets/demo.gif)
+
+*Interactive terminal experience - from stats loading to image export*
+
+</div>
 
 ---
 
