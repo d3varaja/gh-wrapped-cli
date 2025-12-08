@@ -295,7 +295,3 @@ MIT License - see [LICENSE](LICENSE) file for details
 
 **d3varaja**
 - GitHub: [@d3varaja](https://github.com/d3varaja)
-
-## Acknowledgments
-
-Built for the developer community. Inspired by Spotify Wrapped.
