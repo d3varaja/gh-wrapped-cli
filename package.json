@@ -1,6 +1,6 @@
 {
   "name": "gh-wrapped-2025",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "description": "Your GitHub year in review - in your terminal",
   "main": "dist/index.js",
   "bin": {
