@@ -29,7 +29,7 @@ Thumbs.db
 *.log
 npm-debug.log*
 
-# Exports
+# Exports (user-generated)
 *.png
 *.jpg
 *.mp4
@@ -38,6 +38,9 @@ npm-debug.log*
 github-wrapped-*/
 gh-wrapped.*
 share-links.txt
+
+# Exception: Allow assets in .github folder
+!.github/assets/**
 
 # Backups
 *.backup

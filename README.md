@@ -1,40 +1,77 @@
+<div align="center">
+
 # GitHub Wrapped 2025
 
-Your GitHub year in review, directly in your terminal.
+**Your GitHub year in review, beautifully visualized in your terminal**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-green)](https://nodejs.org/)
+[![npm](https://img.shields.io/npm/v/gh-wrapped-2025)](https://www.npmjs.com/package/gh-wrapped-2025)
 
-A CLI tool that analyzes your GitHub activity for 2025 and generates beautiful statistics and shareable images. Like Spotify Wrapped, but for developers.
+*Like Spotify Wrapped, but for developers*
+
+[Quick Start](#quick-start) • [Features](#features) • [Demo](#demo) • [Token Setup](#github-token-setup) • [Contributing](#contributing)
+
+</div>
+
+---
+
+## Demo
+
+https://github.com/d3varaja/gh-wrapped-cli/raw/main/.github/assets/demo.mov
+
+> Watch the full interactive experience - from stats loading to image export
+
+---
 
 ## Quick Start
 
-### Using Bun (Recommended - 100x faster)
-```bash
-bunx gh-wrapped-2025
-```
+**No installation required.** Run it instantly:
 
-### Using npm
 ```bash
+# With Bun (recommended - fastest)
+bunx gh-wrapped-2025
+
+# With npm
 npx gh-wrapped-2025
 ```
 
+**Usage:**
 1. Enter your GitHub username
-2. If prompted, paste your GitHub token (get one at https://github.com/settings/tokens)
-3. View your year in review!
+2. Watch your stats load in real-time
+3. Navigate with arrow keys / spacebar
+4. Press `[E]` to export as image
 
-**That's it!** No setup, no config files needed.
+> **Note:** Most users don't need a token. The app will only prompt you if you hit GitHub's rate limit (60 requests/hour).
 
 ## Features
 
-- **Comprehensive Stats**: Commits, PRs, issues, contribution streaks
-- **Language Analysis**: Top programming languages with usage percentages
-- **Peak Hours Detection**: Discover when you're most productive
-- **Developer Archetypes**: Get classified based on your coding patterns
-- **Achievement System**: Unlock achievements based on your activity
-- **Image Export**: Generate high-quality 1200x675px images for social media
-- **Privacy First**: All processing happens locally, no data collection
+### Comprehensive Analytics
+- Total commits, PRs, issues, and code changes
+- Contribution streaks (current & longest)
+- Peak productivity hours
+- Most active repository
+
+### Language Insights
+- Top 5 programming languages
+- Usage percentages and visual breakdown
+- Language-based statistics
+
+### Developer Profile
+- **Archetype Classification**: Night Owl, Early Bird, Weekend Warrior, etc.
+- **Achievement System**: Unlock badges based on your activity
+- **Smart Insights**: AI-generated observations about your coding patterns
+
+### Export & Share
+- Generate beautiful PNG images
+- Optimized for social media sharing
+- Background Chromium installation (seamless first-time setup)
+
+### Privacy & Performance
+- **100% Local Processing** - No data sent to external servers
+- **Optimized API Calls** - Efficient GraphQL queries with caching
+- **Optional Authentication** - Works without a token for most users
 
 ## Installation
 
@@ -92,10 +129,10 @@ node dist/index.js
 | Package | Purpose |
 |---------|---------|
 | TypeScript | Type-safe development |
-| Ink | React-based terminal UI |
-| Octokit | GitHub API client |
-| Puppeteer | Image generation |
-| Chalk | Terminal styling |
+| React + Ink | Terminal UI framework |
+| Octokit GraphQL | GitHub API client |
+| Playwright | Headless browser for image generation |
+| Bun/Node.js | Runtime environments |
 
 ## Development
 
@@ -141,12 +178,17 @@ node dist/index.js
 ### Project Structure
 ```
 src/
-├── index.tsx       # Main CLI entry point
-├── github.ts       # GitHub API client
-├── analytics.ts    # Stats calculation
-├── ui.tsx          # Terminal UI components
-├── export.ts       # Image export functionality
-└── types.ts        # TypeScript definitions
+├── index.tsx              # Main CLI entry point
+├── github-graphql.ts      # GitHub GraphQL API client
+├── analytics.ts           # Stats calculation & insights
+├── ui.tsx                 # Terminal UI components
+├── export-playwright.ts   # PNG export with Playwright
+├── tier-calculator.ts     # Scoring and tier system
+├── types.ts               # TypeScript type definitions
+└── utils/
+    ├── avatar-fetcher.ts      # Avatar download utility
+    ├── browser-installer.ts   # Background Chromium setup
+    └── html-injector.ts       # Template data injection
 ```
 
 ## API Usage
@@ -154,11 +196,13 @@ src/
 You can also use this as a library:
 
 ```typescript
-import { GitHubClient } from 'gh-wrapped-2025';
+import { GitHubGraphQLClient } from 'gh-wrapped-2025';
 
-const client = new GitHubClient('username');
+const client = new GitHubGraphQLClient('username', 'optional_token');
+const user = await client.getUser();
 const repos = await client.getRepositories();
 const commits = await client.getCommitsForYear(2025);
+const languages = await client.getLanguages();
 ```
 
 ## Rate Limits & Authentication
@@ -189,9 +233,13 @@ Paste your GitHub token (or press Ctrl+C to exit): _
 
 1. Visit: **https://github.com/settings/tokens**
 2. Click **"Generate new token (classic)"**
-3. **No scopes needed** - just click "Generate token" at the bottom
-4. Copy the token
-5. Paste it when the app asks
+3. Give it a name (e.g., "GitHub Wrapped")
+4. **Leave all scopes unchecked** - No permissions needed for public data
+5. Click "Generate token" at the bottom
+6. Copy the token
+7. Paste it when the app asks
+
+**Security Note:** A token with no scopes can only read public data - it's completely safe and cannot modify anything.
 
 ### Advanced: Skip the Prompt (Optional)
 
@@ -207,12 +255,33 @@ echo "GITHUB_TOKEN=your_token" > .env
 
 **For most users: just let the app prompt you!**
 
+## Performance & Optimizations
+
+This project is optimized for performance:
+
+- **Efficient API Usage**: Single GraphQL query with caching (vs multiple REST calls)
+- **Smart Rate Limiting**: Fetches only top 10 repositories (adjustable)
+- **Background Processing**: Chromium installs silently while you browse stats
+- **Async I/O**: Non-blocking file operations
+- **Type Safety**: 100% TypeScript with strict type checking
+- **Small Bundle**: ~800KB minified (externalized dependencies)
+
 ## Contributing
 
-Contributions welcome. Please:
+Contributions are welcome! To contribute:
+
 1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests and build (`bun run build && bun run build:types`)
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+Please ensure:
+- Code follows existing style and conventions
+- TypeScript compiles without errors
+- No breaking changes without discussion
 
 ## License
 
