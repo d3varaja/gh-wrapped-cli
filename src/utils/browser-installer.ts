@@ -80,20 +80,12 @@ export class BackgroundBrowserInstaller {
       return; // Already ready
     }
 
-    if (this.status === 'error') {
-      throw new Error(
-        'Chromium installation failed.\n\n' +
-        'Please install manually:\n' +
-        '  bunx playwright install chromium\n\n' +
-        `Error: ${this.error?.message || 'Unknown error'}`
-      );
-    }
-
     // Wait for installation to complete
     if (this.installPromise) {
       await this.installPromise;
     }
 
+    // Check final status after waiting
     if (this.status === 'error') {
       throw new Error(
         'Chromium installation failed.\n\n' +
