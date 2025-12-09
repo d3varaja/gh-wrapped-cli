@@ -61,6 +61,3 @@ test-results/
 # Bun
 bun.lockb
 bunfig.toml
-
-# Claude Code
-.claude/
