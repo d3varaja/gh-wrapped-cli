@@ -1,6 +1,7 @@
 import { exec } from 'child_process';
 import { existsSync } from 'fs';
 import { promisify } from 'util';
+import { detectPlatform } from './platform-detector.js';
 
 const execAsync = promisify(exec);
 
@@ -15,9 +16,19 @@ export class BackgroundBrowserInstaller {
   /**
    * Check if Chromium is installed
    */
-  private isChromiumInstalled(): boolean {
+  private async isChromiumInstalled(): Promise<boolean> {
+    const platform = detectPlatform();
+
+    if (platform.isTermux) {
+      // Check system chromium for Termux
+      return platform.chromiumPath
+        ? existsSync(platform.chromiumPath)
+        : false;
+    }
+
+    // Check playwright chromium for regular environments
     try {
-      const { chromium } = require('playwright');
+      const { chromium } = await import('playwright');
       const executablePath = chromium.executablePath();
       return existsSync(executablePath);
     } catch {
@@ -40,13 +51,29 @@ export class BackgroundBrowserInstaller {
   private async checkAndInstall(): Promise<void> {
     try {
       this.status = 'checking';
+      const platform = detectPlatform();
 
-      if (this.isChromiumInstalled()) {
+      if (await this.isChromiumInstalled()) {
         this.status = 'ready';
         return;
       }
 
-      // Not installed - start installation
+      // Termux requires manual installation
+      if (platform.isTermux) {
+        this.status = 'error';
+        this.error = new Error(
+          'Termux requires system Chromium.\n\n' +
+          'Install with:\n' +
+          '  pkg install chromium\n\n' +
+          'Set environment:\n' +
+          '  export CHROMIUM_PATH=/data/data/com.termux/files/usr/bin/chromium-browser\n\n' +
+          'Add to ~/.bashrc for persistence'
+        );
+        this.progress = 'Manual installation required';
+        return;
+      }
+
+      // Regular environment - auto-install
       this.status = 'installing';
       this.progress = 'Installing Chromium (one-time, ~200MB)...';
 

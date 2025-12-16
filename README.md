@@ -120,6 +120,43 @@ node dist/index.js
 
 **⚠️ Important:** Always use **Node** to run the built version (`npm start` or `node dist/index.js`), not `bun start`. The image export feature uses Playwright which has known compatibility issues with Bun's runtime, especially on Windows. Bun is great for development and building, but Node is required for running the final output.
 
+### For Termux (Android)
+
+Running on Android via Termux requires special setup:
+
+**Prerequisites:**
+```bash
+# Install required packages
+pkg install nodejs chromium git
+```
+
+**Setup:**
+```bash
+# Clone the repository
+git clone https://github.com/d3varaja/gh-wrapped-cli.git
+cd gh-wrapped-cli
+
+# Install dependencies
+npm install --legacy-peer-deps
+
+# Set environment variables (add to ~/.bashrc for persistence)
+export CHROMIUM_PATH=/data/data/com.termux/files/usr/bin/chromium-browser
+export PLAYWRIGHT_BROWSERS_PATH=0
+
+# Build for Termux
+npm run build:termux
+
+# Run the app
+npm start
+```
+
+**Available Termux-specific scripts:**
+- `npm run dev:termux` - Run in development mode
+- `npm run build:termux` - Build for Termux (uses esbuild)
+- `npm run test:termux` - Run tests (uses vitest)
+
+**Note:** The app automatically detects Termux and uses system Chromium instead of downloading Playwright's bundled browser, saving ~200MB of storage.
+
 ## How It Works
 
 1. Fetches your public GitHub data via GitHub API
