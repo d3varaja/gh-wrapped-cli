@@ -1,4 +1,4 @@
-import { chromium, Browser } from 'playwright';
+import type { Browser, BrowserType } from 'playwright-core';
 import { promises as fs, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -7,6 +7,22 @@ import { calculateScore, determineTier, getTierName, type Tier } from './tier-ca
 import { fetchAvatarAsBase64 } from './utils/avatar-fetcher.js';
 import { injectDataIntoTemplate } from './utils/html-injector.js';
 import { getBrowserInstaller } from './utils/browser-installer.js';
+import { detectPlatform } from './utils/platform-detector.js';
+
+/**
+ * Dynamically load chromium from the appropriate package based on platform
+ */
+async function getChromium(): Promise<BrowserType> {
+  const platform = detectPlatform();
+
+  if (platform.isTermux) {
+    const { chromium } = await import('playwright-core');
+    return chromium;
+  } else {
+    const { chromium } = await import('playwright');
+    return chromium;
+  }
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -75,10 +91,23 @@ export class PlaywrightExporter {
       await this.closeBrowser();
 
       if (error instanceof Error && error.message?.includes('browserType.launch')) {
+        const platform = detectPlatform();
+
+        if (platform.isTermux) {
+          throw new Error(
+            'Failed to launch Chromium on Termux!\n\n' +
+            'Steps:\n' +
+            '1. Install: pkg install chromium\n' +
+            '2. Set: export CHROMIUM_PATH=/data/data/com.termux/files/usr/bin/chromium-browser\n' +
+            '3. Retry with [E]\n\n' +
+            'Path checked: ' + (platform.chromiumPath || 'not set')
+          );
+        }
+
         throw new Error(
           'Chromium browser not installed!\n\n' +
-          'Install with: bunx playwright install chromium\n' +
-          'Then retry export with [R]'
+          'Install with: npx playwright install chromium\n' +
+          'Then retry export with [E]'
         );
       }
 
@@ -119,7 +148,11 @@ export class PlaywrightExporter {
    */
   private async renderHTMLToPNG(htmlContent: string, onProgress?: (status: string) => void): Promise<Buffer> {
     onProgress?.('Starting browser...');
-    this.browser = await chromium.launch({
+
+    const chromium = await getChromium();
+    const platform = detectPlatform();
+
+    const launchOptions: any = {
       headless: true,
       args: [
         '--disable-dev-shm-usage',
@@ -129,7 +162,14 @@ export class PlaywrightExporter {
         '--force-color-profile=srgb'
       ],
       timeout: 60000
-    });
+    };
+
+    // Add executablePath for Termux
+    if (platform.isTermux && platform.chromiumPath) {
+      launchOptions.executablePath = platform.chromiumPath;
+    }
+
+    this.browser = await chromium.launch(launchOptions);
 
     const page = await this.browser.newPage();
     await page.setViewportSize({ width: 440, height: 680 });
