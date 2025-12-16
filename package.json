@@ -18,12 +18,16 @@
   },
   "scripts": {
     "dev": "bun run src/index.tsx",
+    "dev:termux": "tsx src/index.tsx",
     "build": "bun build src/index.tsx --outdir dist --target node --minify --external playwright",
+    "build:termux": "esbuild src/index.tsx --bundle --platform=node --target=node18 --outdir=dist --minify --packages=external --format=esm",
     "postbuild": "node -e \"const fs = require('fs'); fs.cpSync('src/templates', 'dist/templates', {recursive: true}); fs.cpSync('node_modules/yoga-wasm-web/dist/yoga.wasm', 'dist/yoga.wasm');\"",
     "build:types": "tsc --emitDeclarationOnly",
     "start": "node dist/index.js",
     "prepublishOnly": "bun run build && bun run build:types",
-    "test": "bun test"
+    "prepublishOnly:termux": "npm run build:termux && npm run build:types",
+    "test": "bun test",
+    "test:termux": "vitest"
   },
   "keywords": [
     "github",
@@ -50,14 +54,17 @@
     "ink-spinner": "^5.0.0",
     "ink-text-input": "^5.0.1",
     "playwright": "^1.57.0",
+    "playwright-core": "^1.57.0",
     "react": "^18.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
     "@types/react": "^18.2.45",
+    "esbuild": "^0.24.2",
     "react-devtools-core": "7.0.1",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^2.1.8"
   },
   "engines": {
     "node": ">=18.0.0",
