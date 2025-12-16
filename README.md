@@ -75,7 +75,8 @@ npx gh-wrapped-2025
 ### Privacy & Performance
 - **100% Local Processing** - No data sent to external servers
 - **Optimized API Calls** - Efficient GraphQL queries with caching
-- **Optional Authentication** - Works without a token for most users
+- **Optional Authentication** - Works without a token for public data
+- **Private Repository Support** - Include private commits with `repo` scope token
 
 ## Installation
 
@@ -122,7 +123,7 @@ node dist/index.js
 
 ## How It Works
 
-1. Fetches your public GitHub data via GitHub API
+1. Fetches your GitHub data via GitHub API (public and private with token)
 2. Analyzes commits, repositories, languages, and contribution patterns
 3. Calculates streaks, peak hours, and determines your developer archetype
 4. Displays results in a beautiful terminal interface
@@ -211,9 +212,10 @@ const languages = await client.getLanguages();
 
 ## Rate Limits & Authentication
 
-GitHub API has rate limits:
-- **Without token**: 60 requests/hour (you'll likely hit this)
-- **With token**: 5,000 requests/hour
+GitHub API has rate limits and access levels:
+- **Without token**: 60 requests/hour, public repositories only
+- **With token (no scopes)**: 5,000 requests/hour, public repositories only
+- **With token (read:user + repo)**: 5,000 requests/hour, includes private repositories
 
 ### How Token Authentication Works
 
@@ -238,12 +240,17 @@ Paste your GitHub token (or press Ctrl+C to exit): _
 1. Visit: **https://github.com/settings/tokens**
 2. Click **"Generate new token (classic)"**
 3. Give it a name (e.g., "GitHub Wrapped")
-4. **Leave all scopes unchecked** - No permissions needed for public data
+4. **Select the required scopes:**
+   - For **public repositories only**: Leave all scopes unchecked
+   - For **private repositories**: Check `repo` and `read:user`
 5. Click "Generate token" at the bottom
 6. Copy the token
 7. Paste it when the app asks
 
-**Security Note:** A token with no scopes can only read public data - it's completely safe and cannot modify anything.
+**Security Note:**
+- A token with no scopes can only read public data - it's completely safe and cannot modify anything.
+- The `repo` scope allows reading private repositories (required for private commits).
+- The `read:user` scope allows reading user contribution data.
 
 ### Advanced: Skip the Prompt (Optional)
 

@@ -134,7 +134,7 @@ export class GitHubGraphQLClient {
           company
           location
           createdAt
-          repositories(privacy: PUBLIC) {
+          repositories {
             totalCount
           }
           followers {
@@ -199,7 +199,7 @@ export class GitHubGraphQLClient {
             }
           }
 
-          repositories_data: repositories(first: 10, orderBy: {field: STARGAZERS, direction: DESC}, privacy: PUBLIC) {
+          repositories_data: repositories(first: 10, orderBy: {field: STARGAZERS, direction: DESC}) {
             totalCount
             nodes {
               name
@@ -243,14 +243,17 @@ GitHub's API requires authentication to access contribution data.
 
 What you need:
 1. Create a Personal Access Token at: https://github.com/settings/tokens
-2. Minimum scope: read:user (for contribution data)
+2. Required scopes:
+   - read:user (for contribution data)
+   - repo (to include private repository commits)
 3. Run this app again and provide the token when prompted
 
 Why this is needed:
 - Without a token: Only public repository data is visible
-- With a token: Full contribution calendar and statistics
+- With a token (read:user): Public contributions and statistics
+- With a token (read:user + repo): All contributions including private repositories
 
-Get your token now: https://github.com/settings/tokens/new?description=GitHub%20Wrapped&scopes=read:user`);
+Get your token now: https://github.com/settings/tokens/new?description=GitHub%20Wrapped&scopes=read:user,repo`);
       }
 
       // Normalize the response
@@ -281,7 +284,7 @@ Get your token now: https://github.com/settings/tokens/new?description=GitHub%20
         throw new Error(`Invalid GitHub token. Please check your token and try again.
 
 Get a new token at: https://github.com/settings/tokens
-Required scope: read:user`);
+Required scopes: read:user, repo (for private repositories)`);
       }
 
       if (errorStatus === 403 || errorMessage.includes('rate limit')) {
